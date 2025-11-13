@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fut}
+      POSTGRES_USER: ${POSTGRES_USER:-futuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-futpass}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+  backend:
+    build: .
+    depends_on:
+      - db
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - FUT_SECRET=${FUT_SECRET}
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./:/app
+volumes:
+  db_data:

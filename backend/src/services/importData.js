@@ -17,18 +17,25 @@ export async function importLeague(leagueId) {
     const data = await res.json();
 
     if (!data.events) {
-      console.log("❌ Sem eventos");
+      console.log("Sem eventos");
       return;
     }
 
+    // ✅ INSERE A LIGA PRIMEIRO
+    await pool.query(
+      `
+      INSERT INTO leagues (id, name)
+      VALUES ($1, $2)
+      ON CONFLICT (id) DO NOTHING
+      `,
+      [leagueId, data.events[0].strLeague]
+    );
+
     let inserted = 0;
-    let errors = 0;
 
     for (const game of data.events) {
       try {
         if (game.intHomeScore === null || game.intAwayScore === null) continue;
-
-        console.log("Tentando inserir:", game.strHomeTeam, "x", game.strAwayTeam);
 
         await pool.query(
           `
@@ -58,15 +65,13 @@ export async function importLeague(leagueId) {
         inserted++;
 
       } catch (err) {
-        errors++;
-        console.error("❌ ERRO INSERT:", err.message);
+        console.error("ERRO INSERT:", err.message);
       }
     }
 
     console.log(`✅ Inseridos: ${inserted}`);
-    console.log(`❌ Erros: ${errors}`);
 
   } catch (error) {
-    console.error("❌ ERRO GERAL:", error.message);
+    console.error("Erro geral:", error.message);
   }
 }

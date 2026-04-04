@@ -10,12 +10,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// 🚀 ROOT
 router.get("/", (req, res) => {
   res.send("🚀 FutAnalysis Backend ONLINE");
 });
 
-// 🔥 OPORTUNIDADES REAIS (BASEADO EM HISTÓRICO)
 router.get("/opportunities", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -23,14 +21,15 @@ router.get("/opportunities", async (req, res) => {
         home_team,
         away_team,
         league_id,
+        COUNT(*) as games,
         AVG(home_goals + away_goals) as avg_goals,
         AVG(CASE WHEN over_25 = true THEN 1 ELSE 0 END) as over25_prob,
         AVG(CASE WHEN btts = true THEN 1 ELSE 0 END) as btts_prob
       FROM matches
       WHERE is_finished = true
       GROUP BY home_team, away_team, league_id
-      HAVING COUNT(*) > 5
-      LIMIT 50
+      HAVING COUNT(*) > 2
+      LIMIT 100
     `);
 
     const games = result.rows.map((g) => {
@@ -43,6 +42,7 @@ router.get("/opportunities", async (req, res) => {
         home_team: g.home_team,
         away_team: g.away_team,
         league: g.league_id,
+        games: Number(g.games),
         avg_goals: Number(g.avg_goals).toFixed(2),
         probability,
         odd,
@@ -51,9 +51,9 @@ router.get("/opportunities", async (req, res) => {
       };
     });
 
-    // 🔥 FILTRO DE VALOR REAL
+    // 🔥 FILTRO MAIS FLEXÍVEL
     const filtered = games
-      .filter((g) => g.ev > 5)
+      .filter((g) => g.ev > 0) // antes era >5
       .sort((a, b) => b.ev - a.ev);
 
     res.json(filtered);

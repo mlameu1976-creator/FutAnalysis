@@ -7,23 +7,29 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = "3"; // 🔥 TESTE COM API PÚBLICA
 
-// 🔥 IMPORTAR LIGA
 export async function importLeague(leagueId) {
   try {
     const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventspastleague.php?id=${leagueId}`;
 
-    // ✅ fetch nativo (SEM node-fetch)
+    console.log("Buscando:", url);
+
     const res = await fetch(url);
     const data = await res.json();
 
+    console.log("Resposta API:", data);
+
     if (!data.events) {
-      console.log("Nenhum dado retornado");
+      console.log("⚠️ Nenhum evento encontrado");
       return;
     }
 
+    let inserted = 0;
+
     for (const game of data.events) {
+      if (!game.intHomeScore || !game.intAwayScore) continue;
+
       await pool.query(
         `
         INSERT INTO matches (
@@ -37,7 +43,6 @@ export async function importLeague(leagueId) {
           is_finished
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,true)
-        ON CONFLICT DO NOTHING
         `,
         [
           game.strHomeTeam,
@@ -49,9 +54,12 @@ export async function importLeague(leagueId) {
           (game.intHomeScore > 0 && game.intAwayScore > 0),
         ]
       );
+
+      inserted++;
     }
 
-    console.log("✅ Liga importada:", leagueId);
+    console.log(`✅ Inseridos: ${inserted}`);
+
   } catch (error) {
     console.error("❌ Erro import:", error);
   }

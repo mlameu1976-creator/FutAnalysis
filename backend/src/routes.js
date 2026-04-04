@@ -1,5 +1,6 @@
 import express from "express";
 import pool from "./db.js";
+import { over25Prob } from "./services/poisson.js";
 
 const router = express.Router();
 

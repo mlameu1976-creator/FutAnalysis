@@ -1,4 +1,5 @@
 import express from "express";
+import { importLeague } from "./services/importData.js";
 import pkg from "pg";
 
 const { Pool } = pkg;
@@ -10,25 +11,24 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// 🚀 ROOT
 router.get("/", (req, res) => {
   res.send("🚀 FutAnalysis Backend ONLINE");
 });
 
-// 🔥 TESTE BRUTO (SEM FILTRO)
+// 🔥 IMPORTAR DADOS
+router.get("/import/:leagueId", async (req, res) => {
+  const { leagueId } = req.params;
+
+  await importLeague(leagueId);
+
+  res.json({ message: "Importação concluída" });
+});
+
+// 🔥 TESTE
 router.get("/opportunities", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT *
-      FROM matches
-      LIMIT 20
-    `);
-
-    res.json(result.rows);
-
-  } catch (error) {
-    console.error("ERRO:", error);
-    res.status(500).json({ error: error.message });
-  }
+  const result = await pool.query(`SELECT * FROM matches LIMIT 20`);
+  res.json(result.rows);
 });
 
 export default router;

@@ -17,47 +17,56 @@ export async function importLeague(leagueId) {
     const data = await res.json();
 
     if (!data.events) {
-      console.log("Sem eventos");
+      console.log("❌ Sem eventos");
       return;
     }
 
     let inserted = 0;
+    let errors = 0;
 
     for (const game of data.events) {
-      // ✅ CORREÇÃO AQUI (ACEITA ZERO)
-      if (game.intHomeScore === null || game.intAwayScore === null) continue;
+      try {
+        if (game.intHomeScore === null || game.intAwayScore === null) continue;
 
-      await pool.query(
-        `
-        INSERT INTO matches (
-          home_team,
-          away_team,
-          league_id,
-          home_goals,
-          away_goals,
-          over_25,
-          btts,
-          is_finished
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,true)
-        `,
-        [
-          game.strHomeTeam,
-          game.strAwayTeam,
-          leagueId,
-          Number(game.intHomeScore),
-          Number(game.intAwayScore),
-          (game.intHomeScore + game.intAwayScore) > 2,
-          (game.intHomeScore > 0 && game.intAwayScore > 0),
-        ]
-      );
+        console.log("Tentando inserir:", game.strHomeTeam, "x", game.strAwayTeam);
 
-      inserted++;
+        await pool.query(
+          `
+          INSERT INTO matches (
+            home_team,
+            away_team,
+            league_id,
+            home_goals,
+            away_goals,
+            over_25,
+            btts,
+            is_finished
+          )
+          VALUES ($1,$2,$3,$4,$5,$6,$7,true)
+          `,
+          [
+            game.strHomeTeam,
+            game.strAwayTeam,
+            leagueId,
+            Number(game.intHomeScore),
+            Number(game.intAwayScore),
+            (game.intHomeScore + game.intAwayScore) > 2,
+            (game.intHomeScore > 0 && game.intAwayScore > 0),
+          ]
+        );
+
+        inserted++;
+
+      } catch (err) {
+        errors++;
+        console.error("❌ ERRO INSERT:", err.message);
+      }
     }
 
     console.log(`✅ Inseridos: ${inserted}`);
+    console.log(`❌ Erros: ${errors}`);
 
   } catch (error) {
-    console.error("Erro:", error);
+    console.error("❌ ERRO GERAL:", error.message);
   }
 }

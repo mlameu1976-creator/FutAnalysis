@@ -7,16 +7,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* 🔥 ROTA TESTE (IMPORTANTE) */
-app.get("/", (req, res) => {
-  res.send("🚀 FutAnalysis Backend ONLINE");
-});
+app.use("/", routes);
 
-/* 🔥 ROTAS PRINCIPAIS */
-app.use("/api", routes);
-
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });

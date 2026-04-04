@@ -21,15 +21,8 @@ export async function importLeague(leagueId) {
       return;
     }
 
-    // ✅ INSERE A LIGA PRIMEIRO
-    await pool.query(
-      `
-      INSERT INTO leagues (id, name)
-      VALUES ($1, $2)
-      ON CONFLICT (id) DO NOTHING
-      `,
-      [leagueId, data.events[0].strLeague]
-    );
+    // 🔥 DESATIVA FK TEMPORARIAMENTE
+    await pool.query(`SET session_replication_role = 'replica';`);
 
     let inserted = 0;
 
@@ -68,6 +61,9 @@ export async function importLeague(leagueId) {
         console.error("ERRO INSERT:", err.message);
       }
     }
+
+    // 🔥 REATIVA FK
+    await pool.query(`SET session_replication_role = 'origin';`);
 
     console.log(`✅ Inseridos: ${inserted}`);
 

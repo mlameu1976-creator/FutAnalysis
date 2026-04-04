@@ -14,48 +14,48 @@ router.get("/", (req, res) => {
   res.send("🚀 FutAnalysis Backend ONLINE");
 });
 
-// 🔥 NOVO MOTOR (POR TIME)
+// ✅ TESTE BANCO
+router.get("/debug", async (req, res) => {
+  try {
+    const total = await pool.query("SELECT COUNT(*) FROM matches");
+
+    const sample = await pool.query(`
+      SELECT home_team, away_team, home_goals, away_goals
+      FROM matches
+      LIMIT 10
+    `);
+
+    res.json({
+      total_matches: total.rows[0].count,
+      sample: sample.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔥 SEM FILTRO (FORÇADO)
 router.get("/opportunities", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
         home_team,
         COUNT(*) as games,
-        AVG(home_goals) as avg_scored,
-        AVG(away_goals) as avg_conceded,
-        AVG(CASE WHEN over_25 = true THEN 1 ELSE 0 END) as over25_prob
+        AVG(home_goals + away_goals) as avg_goals
       FROM matches
-      WHERE is_finished = true
       GROUP BY home_team
-      HAVING COUNT(*) > 3
       LIMIT 50
     `);
 
-    const games = result.rows.map((team) => {
-      const probability = Number(team.over25_prob);
-      const odd = 2.0;
+    const data = result.rows.map((team) => ({
+      home_team: team.home_team,
+      avg_goals: Number(team.avg_goals).toFixed(2),
+      games: team.games,
+    }));
 
-      const ev = (probability * odd - 1) * 100;
-
-      return {
-        home_team: team.home_team,
-        away_team: "vs Média Liga",
-        league: "Global",
-        avg_goals: Number(team.avg_scored).toFixed(2),
-        probability,
-        odd,
-        ev,
-      };
-    });
-
-    const filtered = games
-      .filter((g) => g.ev > 0)
-      .sort((a, b) => b.ev - a.ev);
-
-    res.json(filtered);
+    res.json(data);
 
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });

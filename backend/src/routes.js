@@ -1,13 +1,35 @@
 import express from "express";
-import pool from "./db.js";
-import { over25Prob } from "./services/poisson.js";
+import pkg from "pg";
+
+const { Pool } = pkg;
 
 const router = express.Router();
 
+// 🔥 conexão postgres
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
+// 🔥 rota raiz
 router.get("/", (req, res) => {
   res.send("🚀 FutAnalysis Backend ONLINE");
 });
 
+// 🔥 TESTE DE BANCO
+router.get("/test-db", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.json(result.rows);
+  } catch (error) {
+    console.error("ERRO DB:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔥 OPORTUNIDADES
 router.get("/opportunities", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -15,18 +37,17 @@ router.get("/opportunities", async (req, res) => {
         m.id,
         m.home_team,
         m.away_team,
-        l.name as league,
-        m.home_goals_avg,
-        m.away_goals_avg
+        l.name as league
       FROM matches m
       JOIN leagues l ON l.id = m.league_id
-      LIMIT 100
+      LIMIT 20
     `);
 
     res.json(result.rows);
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Erro ao buscar dados" });
+    console.error("ERRO REAL:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -14,39 +14,83 @@ router.get("/", (req, res) => {
   res.send("🚀 FutAnalysis Backend ONLINE");
 });
 
-// 🔥 FUNÇÃO POISSON
+// ---------------- POISSON ----------------
+function factorial(n) {
+  if (n === 0) return 1;
+  let r = 1;
+  for (let i = 1; i <= n; i++) r *= i;
+  return r;
+}
+
 function poisson(lambda, k) {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 }
 
-function factorial(n) {
-  if (n === 0) return 1;
-  let result = 1;
-  for (let i = 1; i <= n; i++) result *= i;
-  return result;
-}
-
-// 🔥 PROBABILIDADE OVER 2.5 (REAL)
-function over25Probability(homeExp, awayExp) {
-  let prob = 0;
+// ---------------- MATRIZ DE PROBABILIDADE ----------------
+function matchMatrix(homeExp, awayExp) {
+  let matrix = [];
 
   for (let i = 0; i <= 5; i++) {
     for (let j = 0; j <= 5; j++) {
-      const totalGoals = i + j;
-
-      if (totalGoals > 2) {
-        prob += poisson(homeExp, i) * poisson(awayExp, j);
-      }
+      const prob = poisson(homeExp, i) * poisson(awayExp, j);
+      matrix.push({ home: i, away: j, prob });
     }
   }
 
-  return prob;
+  return matrix;
 }
 
-// 🔥 OPORTUNIDADES PROFISSIONAIS
+// ---------------- MERCADOS ----------------
+
+// Over 2.5
+function over25(matrix) {
+  return matrix
+    .filter(m => m.home + m.away > 2)
+    .reduce((acc, m) => acc + m.prob, 0);
+}
+
+// Over 1.5
+function over15(matrix) {
+  return matrix
+    .filter(m => m.home + m.away > 1)
+    .reduce((acc, m) => acc + m.prob, 0);
+}
+
+// BTTS
+function btts(matrix) {
+  return matrix
+    .filter(m => m.home > 0 && m.away > 0)
+    .reduce((acc, m) => acc + m.prob, 0);
+}
+
+// Casa vence
+function homeWin(matrix) {
+  return matrix
+    .filter(m => m.home > m.away)
+    .reduce((acc, m) => acc + m.prob, 0);
+}
+
+// Fora vence
+function awayWin(matrix) {
+  return matrix
+    .filter(m => m.away > m.home)
+    .reduce((acc, m) => acc + m.prob, 0);
+}
+
+// Gol HT (aprox: metade dos gols)
+function goalHT(homeExp, awayExp) {
+  const htExp = (homeExp + awayExp) * 0.45;
+  return 1 - Math.exp(-htExp);
+}
+
+// ---------------- EV ----------------
+function calcEV(prob, odd) {
+  return (prob * odd - 1) * 100;
+}
+
+// ---------------- ROTA ----------------
 router.get("/opportunities", async (req, res) => {
   try {
-    // 🔥 stats por time + liga
     const stats = await pool.query(`
       SELECT 
         home_team as team,
@@ -58,7 +102,6 @@ router.get("/opportunities", async (req, res) => {
     `);
 
     const teams = stats.rows;
-
     let opportunities = [];
 
     for (let i = 0; i < teams.length; i++) {
@@ -68,45 +111,43 @@ router.get("/opportunities", async (req, res) => {
         const home = teams[i];
         const away = teams[j];
 
-        // 🔥 só mesma liga
         if (home.league_id !== away.league_id) continue;
 
-        const homeAttack = Number(home.attack);
-        const awayDefense = Number(away.defense);
+        const homeExp = (Number(home.attack) + Number(away.defense)) / 2;
+        const awayExp = (Number(away.attack) + Number(home.defense)) / 2;
 
-        const awayAttack = Number(away.attack);
-        const homeDefense = Number(home.defense);
+        const matrix = matchMatrix(homeExp, awayExp);
 
-        // 🔥 expectativa de gols (modelo simples)
-        const homeExp = (homeAttack + awayDefense) / 2;
-        const awayExp = (awayAttack + homeDefense) / 2;
+        const markets = [
+          { name: "OVER 2.5", prob: over25(matrix), odd: 1.9 },
+          { name: "OVER 1.5", prob: over15(matrix), odd: 1.4 },
+          { name: "BTTS", prob: btts(matrix), odd: 1.8 },
+          { name: "HOME WIN", prob: homeWin(matrix), odd: 2.2 },
+          { name: "AWAY WIN", prob: awayWin(matrix), odd: 2.5 },
+          { name: "GOAL HT", prob: goalHT(homeExp, awayExp), odd: 1.6 },
+        ];
 
-        const totalExp = homeExp + awayExp;
+        markets.forEach(m => {
+          const ev = calcEV(m.prob, m.odd);
 
-        // 🔥 PROBABILIDADE REAL
-        const probability = over25Probability(homeExp, awayExp);
-
-        // 🔥 ODDS simulada mais real
-        const odd = 1.7 + Math.random() * 0.8;
-
-        // 🔥 EV
-        const ev = (probability * odd - 1) * 100;
-
-        if (ev > 5 && probability > 0.55) {
-          opportunities.push({
-            home_team: home.team,
-            away_team: away.team,
-            league_id: home.league_id,
-            expectedGoals: totalExp.toFixed(2),
-            probability: (probability * 100).toFixed(1) + "%",
-            odd: odd.toFixed(2),
-            ev: ev.toFixed(2) + "%",
-          });
-        }
+          if (ev > 8 && m.prob > 0.55) {
+            opportunities.push({
+              match: `${home.team} x ${away.team}`,
+              league_id: home.league_id,
+              market: m.name,
+              probability: (m.prob * 100).toFixed(1) + "%",
+              odd: m.odd,
+              ev: ev.toFixed(2) + "%",
+            });
+          }
+        });
       }
     }
 
-    opportunities.sort((a, b) => parseFloat(b.ev) - parseFloat(a.ev));
+    // ranking inteligente
+    opportunities.sort((a, b) => {
+      return parseFloat(b.ev) - parseFloat(a.ev);
+    });
 
     res.json(opportunities.slice(0, 50));
 

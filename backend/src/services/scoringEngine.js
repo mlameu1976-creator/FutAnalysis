@@ -7,12 +7,19 @@ const poisson = (lambda, k) => {
 const CONFIG = {
   HOME_ADVANTAGE: 1.15,
   MAX_GOALS: 6,
-  MIN_EV: 0.04,
-  MIN_PROB: 0.15
+  MIN_EV: 0.03
 };
 
-// =============================
-// FORÇA DOS TIMES
+// 🔥 FILTRO POR MERCADO
+const MARKET_LIMITS = {
+  HOME_WIN: 0.2,
+  AWAY_WIN: 0.2,
+  OVER_2_5: 0.25,
+  OVER_1_5: 0.4,
+  BTTS: 0.3,
+  HT_GOAL: 0.1 // 🔥 liberado
+};
+
 // =============================
 function calculateTeamStrengths(matches) {
   const teams = {};
@@ -37,9 +44,6 @@ function calculateTeamStrengths(matches) {
   return teams;
 }
 
-// =============================
-// MÉDIA DA LIGA
-// =============================
 function leagueAverages(matches) {
   let totalGoals = 0;
 
@@ -55,9 +59,6 @@ function leagueAverages(matches) {
   };
 }
 
-// =============================
-// EXPECTED GOALS
-// =============================
 function expectedGoals(home, away, teams, league) {
   const homeStats = teams[home];
   const awayStats = teams[away];
@@ -81,9 +82,6 @@ function expectedGoals(home, away, teams, league) {
   return { lambdaHome, lambdaAway };
 }
 
-// =============================
-// PROBABILIDADES
-// =============================
 function matchProbabilities(lambdaHome, lambdaAway) {
   let homeWin = 0;
   let awayWin = 0;
@@ -107,17 +105,12 @@ function matchProbabilities(lambdaHome, lambdaAway) {
   return { homeWin, awayWin, over25, over15, btts };
 }
 
-// =============================
-// NOVO: GOL NO 1º TEMPO
-// =============================
+// 🔥 GOL HT
 function firstHalfGoal(lambdaHome, lambdaAway) {
-  const totalLambda = (lambdaHome + lambdaAway) * 0.45; // 45% dos gols no 1º tempo
-
-  // prob de pelo menos 1 gol
-  return 1 - Math.exp(-totalLambda);
+  const lambdaHT = (lambdaHome + lambdaAway) * 0.45;
+  return 1 - Math.exp(-lambdaHT);
 }
 
-// =============================
 function marketOdds(prob) {
   return (1 / prob) * 1.06;
 }
@@ -138,8 +131,6 @@ function formatMarket(type) {
 }
 
 // =============================
-// ENGINE PRINCIPAL
-// =============================
 function generateOpportunities(matches) {
   const teams = calculateTeamStrengths(matches);
   const league = leagueAverages(matches);
@@ -155,7 +146,6 @@ function generateOpportunities(matches) {
     );
 
     const probs = matchProbabilities(lambdaHome, lambdaAway);
-
     const htGoal = firstHalfGoal(lambdaHome, lambdaAway);
 
     const markets = [
@@ -168,7 +158,9 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      if (m.prob < CONFIG.MIN_PROB) return;
+      const minProb = MARKET_LIMITS[m.type] || 0.2;
+
+      if (m.prob < minProb) return;
 
       const odds = marketOdds(m.prob);
       const ev = calculateEV(m.prob, odds);

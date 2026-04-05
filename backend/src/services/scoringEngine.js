@@ -1,5 +1,3 @@
-console.log("🔥 NOVO SCORING ENGINE ATIVO");
-
 const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1));
 
 const poisson = (lambda, k) => {
@@ -9,20 +7,9 @@ const poisson = (lambda, k) => {
 const CONFIG = {
   HOME_ADVANTAGE: 1.15,
   MAX_GOALS: 6,
-  MIN_EV: 0.03
+  MIN_EV: 0.04,
+  MIN_PROB: 0.15 // 🔥 remove lixo
 };
-
-const MARKET_WEIGHTS = {
-  HOME_WIN: 1.0,
-  AWAY_WIN: 0.90,
-  OVER_2_5: 0.93,
-  OVER_1_5: 1.05,
-  BTTS: 1.02
-};
-
-function calibrateProbability(p) {
-  return Math.min(Math.max(p, 0.05), 0.90);
-}
 
 function calculateTeamStrengths(matches) {
   const teams = {};
@@ -87,7 +74,6 @@ function expectedGoals(home, away, teams, league) {
 
 function matchProbabilities(lambdaHome, lambdaAway) {
   let homeWin = 0;
-  let draw = 0;
   let awayWin = 0;
   let over25 = 0;
   let over15 = 0;
@@ -98,8 +84,7 @@ function matchProbabilities(lambdaHome, lambdaAway) {
       const p = poisson(lambdaHome, i) * poisson(lambdaAway, j);
 
       if (i > j) homeWin += p;
-      else if (i === j) draw += p;
-      else awayWin += p;
+      else if (j > i) awayWin += p;
 
       if (i + j >= 3) over25 += p;
       if (i + j >= 2) over15 += p;
@@ -107,17 +92,15 @@ function matchProbabilities(lambdaHome, lambdaAway) {
     }
   }
 
-  return { homeWin, draw, awayWin, over25, over15, btts };
+  return { homeWin, awayWin, over25, over15, btts };
 }
 
 function marketOdds(prob) {
-  const margin = 1.08;
-  return (1 / prob) * margin;
+  return (1 / prob) * 1.06;
 }
 
-function adjustedEV(prob, odds, market) {
-  const baseEV = prob * odds - 1;
-  return baseEV * MARKET_WEIGHTS[market];
+function calculateEV(prob, odds) {
+  return prob * odds - 1;
 }
 
 function generateOpportunities(matches) {
@@ -145,16 +128,16 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      let prob = calibrateProbability(m.prob);
+      if (m.prob < CONFIG.MIN_PROB) return; // 🔥 filtro forte
 
-      const odds = marketOdds(prob);
-      const ev = adjustedEV(prob, odds, m.type);
+      const odds = marketOdds(m.prob);
+      const ev = calculateEV(m.prob, odds);
 
       if (ev >= CONFIG.MIN_EV) {
         opportunities.push({
           match: `${match.home_team} vs ${match.away_team}`,
           market: m.type,
-          probability: Number(prob.toFixed(3)),
+          probability: Number(m.prob.toFixed(3)),
           odds: Number(odds.toFixed(2)),
           ev: Number(ev.toFixed(3))
         });

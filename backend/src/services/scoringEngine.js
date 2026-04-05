@@ -6,18 +6,19 @@ const poisson = (lambda, k) => {
 
 const CONFIG = {
   HOME_ADVANTAGE: 1.15,
-  MAX_GOALS: 6,
-  MIN_EV: 0.03
+  MAX_GOALS: 6
 };
 
-// 🔥 FILTRO POR MERCADO
-const MARKET_LIMITS = {
-  HOME_WIN: 0.2,
-  AWAY_WIN: 0.2,
-  OVER_2_5: 0.25,
-  OVER_1_5: 0.4,
-  BTTS: 0.3,
-  HT_GOAL: 0.1 // 🔥 liberado
+// =============================
+// EV POR MERCADO (AJUSTADO)
+// =============================
+const EV_LIMITS = {
+  HOME_WIN: 0.03,
+  AWAY_WIN: 0.03,
+  OVER_2_5: 0.01,
+  OVER_1_5: 0.005,
+  BTTS: 0.01,
+  HT_GOAL: 0.005
 };
 
 // =============================
@@ -64,7 +65,7 @@ function expectedGoals(home, away, teams, league) {
   const awayStats = teams[away];
 
   if (!homeStats || !awayStats) {
-    return { lambdaHome: 1.2, lambdaAway: 1.0 };
+    return { lambdaHome: 1.3, lambdaAway: 1.1 };
   }
 
   const homeAttack = (homeStats.scored / homeStats.games) / league.avgHome;
@@ -105,14 +106,25 @@ function matchProbabilities(lambdaHome, lambdaAway) {
   return { homeWin, awayWin, over25, over15, btts };
 }
 
-// 🔥 GOL HT
+// =============================
+// HT GOAL
+// =============================
 function firstHalfGoal(lambdaHome, lambdaAway) {
   const lambdaHT = (lambdaHome + lambdaAway) * 0.45;
   return 1 - Math.exp(-lambdaHT);
 }
 
-function marketOdds(prob) {
-  return (1 / prob) * 1.06;
+// =============================
+// ODDS MAIS AGRESSIVAS (CHAVE)
+// =============================
+function marketOdds(prob, type) {
+  let margin = 1.04;
+
+  if (type === "OVER_2_5" || type === "OVER_1_5") margin = 1.01;
+  if (type === "BTTS") margin = 1.02;
+  if (type === "HT_GOAL") margin = 1.02;
+
+  return 1 / prob * margin;
 }
 
 function calculateEV(prob, odds) {
@@ -130,6 +142,8 @@ function formatMarket(type) {
   }[type];
 }
 
+// =============================
+// ENGINE FINAL
 // =============================
 function generateOpportunities(matches) {
   const teams = calculateTeamStrengths(matches);
@@ -158,14 +172,12 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      const minProb = MARKET_LIMITS[m.type] || 0.2;
-
-      if (m.prob < minProb) return;
-
-      const odds = marketOdds(m.prob);
+      const odds = marketOdds(m.prob, m.type);
       const ev = calculateEV(m.prob, odds);
 
-      if (ev >= CONFIG.MIN_EV) {
+      const minEV = EV_LIMITS[m.type] || 0.02;
+
+      if (ev >= minEV) {
         opportunities.push({
           homeTeam: match.home_team,
           awayTeam: match.away_team,

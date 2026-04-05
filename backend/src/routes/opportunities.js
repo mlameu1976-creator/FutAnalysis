@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const db = require("../db");
+
+console.log("🔥 DB IMPORTADO:", db);
 const { generateOpportunities } = require("../services/scoringEngine");
 
 router.get("/", async (req, res) => {

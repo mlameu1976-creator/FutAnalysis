@@ -10,10 +10,58 @@ const CONFIG = {
 };
 
 // =============================
+// 🔥 LIGAS PERMITIDAS (PRO)
+// =============================
+const ALLOWED_LEAGUES = [
+  "premier",
+  "championship",
+  "la liga",
+  "segunda",
+  "serie a",
+  "serie b",
+  "bundesliga",
+  "eredivisie",
+  "portugal",
+  "turkey",
+  "brazil",
+  "norway",
+  "mls",
+  "denmark",
+  "austria",
+  "china",
+  "scotland",
+  "argentina",
+  "colombia",
+  "uruguay",
+  "paraguay",
+  "venezuela",
+  "bolivia",
+  "mexico",
+  "saudi",
+  "australia",
+  "belgium",
+  "poland",
+  "czech",
+  "serbia"
+];
+
+// =============================
+function isLeagueAllowed(leagueName) {
+  if (!leagueName) return false;
+
+  const name = leagueName.toLowerCase();
+
+  return ALLOWED_LEAGUES.some((l) => name.includes(l));
+}
+
+// =============================
 function calculateTeamStrengths(matches) {
   const teams = {};
 
   matches.forEach(m => {
+    const homeGoals = m.home_goals ?? 1;
+    const awayGoals = m.away_goals ?? 1;
+
     if (!teams[m.home_team]) {
       teams[m.home_team] = { scored: 0, conceded: 0, games: 0 };
     }
@@ -21,26 +69,29 @@ function calculateTeamStrengths(matches) {
       teams[m.away_team] = { scored: 0, conceded: 0, games: 0 };
     }
 
-    teams[m.home_team].scored += m.home_goals;
-    teams[m.home_team].conceded += m.away_goals;
+    teams[m.home_team].scored += homeGoals;
+    teams[m.home_team].conceded += awayGoals;
     teams[m.home_team].games += 1;
 
-    teams[m.away_team].scored += m.away_goals;
-    teams[m.away_team].conceded += m.home_goals;
+    teams[m.away_team].scored += awayGoals;
+    teams[m.away_team].conceded += homeGoals;
     teams[m.away_team].games += 1;
   });
 
   return teams;
 }
 
+// =============================
 function leagueAverages(matches) {
   let totalGoals = 0;
 
   matches.forEach(m => {
-    totalGoals += m.home_goals + m.away_goals;
+    const homeGoals = m.home_goals ?? 1;
+    const awayGoals = m.away_goals ?? 1;
+    totalGoals += homeGoals + awayGoals;
   });
 
-  const games = matches.length;
+  const games = matches.length || 1;
 
   return {
     avgHome: (totalGoals / games) * 0.5,
@@ -48,6 +99,7 @@ function leagueAverages(matches) {
   };
 }
 
+// =============================
 function expectedGoals(home, away, teams, league) {
   const homeStats = teams[home];
   const awayStats = teams[away];
@@ -62,15 +114,15 @@ function expectedGoals(home, away, teams, league) {
   const awayAttack = (awayStats.scored / awayStats.games) / league.avgAway;
   const awayDefense = (awayStats.conceded / awayStats.games) / league.avgHome;
 
-  const lambdaHome =
-    homeAttack * awayDefense * league.avgHome * CONFIG.HOME_ADVANTAGE;
-
-  const lambdaAway =
-    awayAttack * homeDefense * league.avgAway;
-
-  return { lambdaHome, lambdaAway };
+  return {
+    lambdaHome:
+      homeAttack * awayDefense * league.avgHome * CONFIG.HOME_ADVANTAGE,
+    lambdaAway:
+      awayAttack * homeDefense * league.avgAway
+  };
 }
 
+// =============================
 function matchProbabilities(lambdaHome, lambdaAway) {
   let homeWin = 0;
   let awayWin = 0;
@@ -108,7 +160,7 @@ function marketOdds(prob, type) {
   if (type === "BTTS") margin = 1.02;
   if (type === "HT_GOAL") margin = 1.02;
 
-  return 1 / prob * margin;
+  return (1 / prob) * margin;
 }
 
 function calculateEV(prob, odds) {
@@ -127,15 +179,22 @@ function formatMarket(type) {
 }
 
 // =============================
-// ENGINE FINAL (SEM FILTRO)
+// 🚀 ENGINE FINAL COM FILTRO DE LIGA
 // =============================
 function generateOpportunities(matches) {
-  const teams = calculateTeamStrengths(matches);
-  const league = leagueAverages(matches);
+  if (!matches || matches.length === 0) return [];
 
-  const opportunities = [];
+  // 🔥 FILTRO AQUI
+  const filteredMatches = matches.filter(m =>
+    isLeagueAllowed(m.league)
+  );
 
-  matches.forEach(match => {
+  const teams = calculateTeamStrengths(filteredMatches);
+  const league = leagueAverages(filteredMatches);
+
+  const map = new Map();
+
+  filteredMatches.forEach(match => {
     const { lambdaHome, lambdaAway } = expectedGoals(
       match.home_team,
       match.away_team,
@@ -156,23 +215,29 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
+      const key = `${match.home_team}-${match.away_team}-${m.type}`;
+
       const odds = marketOdds(m.prob, m.type);
       const ev = calculateEV(m.prob, odds);
 
-      opportunities.push({
+      const item = {
         homeTeam: match.home_team,
         awayTeam: match.away_team,
+        league: match.league,
         market: formatMarket(m.type),
         probability: Number((m.prob * 100).toFixed(1)),
         confidence: Number((m.prob * 100).toFixed(0)),
         odds: Number(odds.toFixed(2)),
         ev: Number((ev * 100).toFixed(2))
-      });
+      };
+
+      if (!map.has(key) || item.ev > map.get(key).ev) {
+        map.set(key, item);
+      }
     });
   });
 
-  // 🔥 ordena por EV (não filtra)
-  return opportunities.sort((a, b) => b.ev - a.ev);
+  return Array.from(map.values()).sort((a, b) => b.ev - a.ev);
 }
 
 module.exports = {

@@ -130,7 +130,41 @@ router.get("/opportunities", async (req, res) => {
         markets.forEach(m => {
           const ev = calcEV(m.prob, m.odd);
 
-          if (ev > 8 && m.prob > 0.55) {
+          let minProb = 0.55;
+let minEV = 8;
+
+// 🔥 ajuste por mercado
+if (m.name === "OVER 2.5") {
+  minProb = 0.58;
+}
+
+if (m.name === "OVER 1.5") {
+  minProb = 0.70;
+}
+
+if (m.name === "BTTS") {
+  minProb = 0.57;
+}
+
+if (m.name === "HOME WIN" || m.name === "AWAY WIN") {
+  minProb = 0.52;
+}
+
+if (m.name === "GOAL HT") {
+  minProb = 0.60;
+}
+
+// 🔥 filtro inteligente
+if (ev > minEV && m.prob > minProb) {
+  opportunities.push({
+    match: `${home.team} x ${away.team}`,
+    league_id: home.league_id,
+    market: m.name,
+    probability: (m.prob * 100).toFixed(1) + "%",
+    odd: m.odd,
+    ev: ev.toFixed(2) + "%",
+  });
+} {
             opportunities.push({
               match: `${home.team} x ${away.team}`,
               league_id: home.league_id,

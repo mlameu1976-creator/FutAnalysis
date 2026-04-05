@@ -10,18 +10,6 @@ const CONFIG = {
 };
 
 // =============================
-// EV POR MERCADO (AJUSTADO)
-// =============================
-const EV_LIMITS = {
-  HOME_WIN: 0.03,
-  AWAY_WIN: 0.03,
-  OVER_2_5: 0.01,
-  OVER_1_5: 0.005,
-  BTTS: 0.01,
-  HT_GOAL: 0.005
-};
-
-// =============================
 function calculateTeamStrengths(matches) {
   const teams = {};
 
@@ -65,7 +53,7 @@ function expectedGoals(home, away, teams, league) {
   const awayStats = teams[away];
 
   if (!homeStats || !awayStats) {
-    return { lambdaHome: 1.3, lambdaAway: 1.1 };
+    return { lambdaHome: 1.4, lambdaAway: 1.2 };
   }
 
   const homeAttack = (homeStats.scored / homeStats.games) / league.avgHome;
@@ -107,15 +95,11 @@ function matchProbabilities(lambdaHome, lambdaAway) {
 }
 
 // =============================
-// HT GOAL
-// =============================
 function firstHalfGoal(lambdaHome, lambdaAway) {
   const lambdaHT = (lambdaHome + lambdaAway) * 0.45;
   return 1 - Math.exp(-lambdaHT);
 }
 
-// =============================
-// ODDS MAIS AGRESSIVAS (CHAVE)
 // =============================
 function marketOdds(prob, type) {
   let margin = 1.04;
@@ -143,7 +127,7 @@ function formatMarket(type) {
 }
 
 // =============================
-// ENGINE FINAL
+// ENGINE FINAL (SEM FILTRO)
 // =============================
 function generateOpportunities(matches) {
   const teams = calculateTeamStrengths(matches);
@@ -175,23 +159,20 @@ function generateOpportunities(matches) {
       const odds = marketOdds(m.prob, m.type);
       const ev = calculateEV(m.prob, odds);
 
-      const minEV = EV_LIMITS[m.type] || 0.02;
-
-      if (ev >= minEV) {
-        opportunities.push({
-          homeTeam: match.home_team,
-          awayTeam: match.away_team,
-          market: formatMarket(m.type),
-          probability: Number((m.prob * 100).toFixed(1)),
-          confidence: Number((m.prob * 100).toFixed(0)),
-          odds: Number(odds.toFixed(2)),
-          ev: Number((ev * 100).toFixed(2))
-        });
-      }
+      opportunities.push({
+        homeTeam: match.home_team,
+        awayTeam: match.away_team,
+        market: formatMarket(m.type),
+        probability: Number((m.prob * 100).toFixed(1)),
+        confidence: Number((m.prob * 100).toFixed(0)),
+        odds: Number(odds.toFixed(2)),
+        ev: Number((ev * 100).toFixed(2))
+      });
     });
   });
 
-  return opportunities;
+  // 🔥 ordena por EV (não filtra)
+  return opportunities.sort((a, b) => b.ev - a.ev);
 }
 
 module.exports = {

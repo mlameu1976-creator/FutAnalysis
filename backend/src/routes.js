@@ -9,11 +9,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// ROOT
-router.get("/", (req, res) => {
-  res.send("🚀 FutAnalysis Backend ONLINE");
-});
-
 // ---------------- POISSON ----------------
 function factorial(n) {
   if (n === 0) return 1;
@@ -26,72 +21,43 @@ function poisson(lambda, k) {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 }
 
-// ---------------- MATRIZ ----------------
-function matchMatrix(homeExp, awayExp) {
-  let matrix = [];
-
+function matrix(homeExp, awayExp) {
+  let arr = [];
   for (let i = 0; i <= 5; i++) {
     for (let j = 0; j <= 5; j++) {
-      const prob = poisson(homeExp, i) * poisson(awayExp, j);
-      matrix.push({ home: i, away: j, prob });
+      arr.push({ home: i, away: j, prob: poisson(homeExp, i) * poisson(awayExp, j) });
     }
   }
-
-  return matrix;
+  return arr;
 }
 
 // ---------------- MERCADOS ----------------
-function over25(matrix) {
-  return matrix.filter(m => m.home + m.away > 2)
-    .reduce((acc, m) => acc + m.prob, 0);
-}
-
-function over15(matrix) {
-  return matrix.filter(m => m.home + m.away > 1)
-    .reduce((acc, m) => acc + m.prob, 0);
-}
-
-function btts(matrix) {
-  return matrix.filter(m => m.home > 0 && m.away > 0)
-    .reduce((acc, m) => acc + m.prob, 0);
-}
-
-function homeWin(matrix) {
-  return matrix.filter(m => m.home > m.away)
-    .reduce((acc, m) => acc + m.prob, 0);
-}
-
-function awayWin(matrix) {
-  return matrix.filter(m => m.away > m.home)
-    .reduce((acc, m) => acc + m.prob, 0);
-}
-
-function goalHT(homeExp, awayExp) {
-  const htExp = (homeExp + awayExp) * 0.45;
-  return 1 - Math.exp(-htExp);
+function calc(matrix, type) {
+  if (type === "OVER25") return matrix.filter(m => m.home + m.away > 2).reduce((a, b) => a + b.prob, 0);
+  if (type === "OVER15") return matrix.filter(m => m.home + m.away > 1).reduce((a, b) => a + b.prob, 0);
+  if (type === "BTTS") return matrix.filter(m => m.home > 0 && m.away > 0).reduce((a, b) => a + b.prob, 0);
+  if (type === "HOME") return matrix.filter(m => m.home > m.away).reduce((a, b) => a + b.prob, 0);
+  if (type === "AWAY") return matrix.filter(m => m.away > m.home).reduce((a, b) => a + b.prob, 0);
 }
 
 // ---------------- EV ----------------
-function calcEV(prob, odd) {
+function ev(prob, odd) {
   return (prob * odd - 1) * 100;
 }
 
-// ---------------- ROTA PRINCIPAL ----------------
+// ---------------- ROTA ----------------
 router.get("/opportunities", async (req, res) => {
   try {
     const stats = await pool.query(`
-      SELECT 
-        home_team as team,
-        league_id,
-        AVG(home_goals) as attack,
-        AVG(away_goals) as defense
+      SELECT home_team, league_id,
+      AVG(home_goals) as attack,
+      AVG(away_goals) as defense
       FROM matches
       GROUP BY home_team, league_id
     `);
 
     const teams = stats.rows;
-
-    let opportunities = [];
+    let results = [];
 
     for (let i = 0; i < teams.length; i++) {
       for (let j = 0; j < teams.length; j++) {
@@ -103,72 +69,48 @@ router.get("/opportunities", async (req, res) => {
 
         if (home.league_id !== away.league_id) continue;
 
-        const homeAttack = Number(home.attack);
-        const awayAttack = Number(away.attack);
-        const homeDefense = Number(home.defense);
-        const awayDefense = Number(away.defense);
+        const avg = 2.6;
 
-        // 🔥 MODELO NORMALIZADO (CORRETO)
-        const avgGoals = 2.6;
+        const homeExp = (home.attack / avg) * (away.defense / avg) * avg;
+        const awayExp = (away.attack / avg) * (home.defense / avg) * avg;
 
-        const homeStrength = homeAttack / avgGoals;
-        const awayStrength = awayAttack / avgGoals;
-
-        const homeDefenseStrength = homeDefense / avgGoals;
-        const awayDefenseStrength = awayDefense / avgGoals;
-
-        const homeExp = homeStrength * awayDefenseStrength * avgGoals;
-        const awayExp = awayStrength * homeDefenseStrength * avgGoals;
-
-        const matrix = matchMatrix(homeExp, awayExp);
+        const m = matrix(homeExp, awayExp);
 
         const markets = [
-          { name: "OVER 2.5", prob: over25(matrix), odd: 1.9 },
-          { name: "OVER 1.5", prob: over15(matrix), odd: 1.4 },
-          { name: "BTTS", prob: btts(matrix), odd: 1.8 },
-          { name: "HOME WIN", prob: homeWin(matrix), odd: 2.2 },
-          { name: "AWAY WIN", prob: awayWin(matrix), odd: 2.5 },
-          { name: "GOAL HT", prob: goalHT(homeExp, awayExp), odd: 1.6 },
+          { name: "OVER 2.5", prob: calc(m, "OVER25"), odd: 1.9 },
+          { name: "OVER 1.5", prob: calc(m, "OVER15"), odd: 1.4 },
+          { name: "BTTS", prob: calc(m, "BTTS"), odd: 1.8 },
+          { name: "HOME WIN", prob: calc(m, "HOME"), odd: 2.3 },
+          { name: "AWAY WIN", prob: calc(m, "AWAY"), odd: 2.3 },
         ];
 
-        markets.forEach(m => {
+        markets.forEach(mkt => {
 
-          // 🔥 LIMITAR PROBABILIDADE IRREAL
-          const probability = Math.min(m.prob, 0.85);
+          const probability = Math.min(mkt.prob, 0.75); // 🔥 trava realista
+          const value = ev(probability, mkt.odd);
 
-          const ev = calcEV(probability, m.odd);
-
-          // 🔥 FILTRO INTELIGENTE POR MERCADO
-          let minProb = 0.55;
-
-          if (m.name === "OVER 2.5") minProb = 0.58;
-          if (m.name === "OVER 1.5") minProb = 0.70;
-          if (m.name === "BTTS") minProb = 0.57;
-          if (m.name === "HOME WIN" || m.name === "AWAY WIN") minProb = 0.52;
-          if (m.name === "GOAL HT") minProb = 0.60;
-
-          if (ev > 8 && probability > minProb) {
-            opportunities.push({
-              match: `${home.team} x ${away.team}`,
-              league_id: home.league_id,
-              market: m.name,
+          if (value > 5 && probability > 0.55) {
+            results.push({
+              home_team: home.home_team,
+              away_team: away.home_team,
+              market: mkt.name,
               probability: (probability * 100).toFixed(1) + "%",
-              odd: m.odd,
-              ev: ev.toFixed(2) + "%",
+              odd: mkt.odd,
+              ev: value.toFixed(2) + "%",
             });
           }
+
         });
 
       }
     }
 
-    // 🔥 RANKING
-    opportunities.sort((a, b) => parseFloat(b.ev) - parseFloat(a.ev));
+    results.sort((a, b) => parseFloat(b.ev) - parseFloat(a.ev));
 
-    res.json(opportunities.slice(0, 50));
+    res.json(results.slice(0, 50));
 
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

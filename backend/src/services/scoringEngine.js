@@ -1,24 +1,26 @@
-// services/scoringEngine.js
-
 const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1));
 
 const poisson = (lambda, k) => {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 };
 
-// =============================
-// CONFIG PROFISSIONAL
-// =============================
-
 const CONFIG = {
-  HOME_ADVANTAGE: 1.12,
+  HOME_ADVANTAGE: 1.15,
   MAX_GOALS: 6,
-  MIN_EV: 0.05
+  MIN_EV: 0.03
 };
 
-// =============================
-// FORÇA DOS TIMES
-// =============================
+const MARKET_WEIGHTS = {
+  HOME_WIN: 1.0,
+  AWAY_WIN: 0.90,
+  OVER_2_5: 0.93,
+  OVER_1_5: 1.05,
+  BTTS: 1.02
+};
+
+function calibrateProbability(p) {
+  return Math.min(Math.max(p, 0.05), 0.90);
+}
 
 function calculateTeamStrengths(matches) {
   const teams = {};
@@ -45,26 +47,26 @@ function calculateTeamStrengths(matches) {
 
 function leagueAverages(matches) {
   let totalGoals = 0;
-  let totalGames = matches.length;
 
   matches.forEach(m => {
     totalGoals += m.home_goals + m.away_goals;
   });
 
+  const games = matches.length;
+
   return {
-    avgGoals: totalGoals / totalGames,
-    avgHome: totalGoals / totalGames / 2,
-    avgAway: totalGoals / totalGames / 2
+    avgHome: (totalGoals / games) * 0.5,
+    avgAway: (totalGoals / games) * 0.5
   };
 }
-
-// =============================
-// EXPECTED GOALS AJUSTADO
-// =============================
 
 function expectedGoals(home, away, teams, league) {
   const homeStats = teams[home];
   const awayStats = teams[away];
+
+  if (!homeStats || !awayStats) {
+    return { lambdaHome: 1.2, lambdaAway: 1.0 };
+  }
 
   const homeAttack = (homeStats.scored / homeStats.games) / league.avgHome;
   const homeDefense = (homeStats.conceded / homeStats.games) / league.avgAway;
@@ -80,10 +82,6 @@ function expectedGoals(home, away, teams, league) {
 
   return { lambdaHome, lambdaAway };
 }
-
-// =============================
-// MATRIZ DE PROBABILIDADE
-// =============================
 
 function matchProbabilities(lambdaHome, lambdaAway) {
   let homeWin = 0;
@@ -107,41 +105,18 @@ function matchProbabilities(lambdaHome, lambdaAway) {
     }
   }
 
-  return {
-    homeWin,
-    draw,
-    awayWin,
-    over25,
-    over15,
-    btts
-  };
+  return { homeWin, draw, awayWin, over25, over15, btts };
 }
 
-// =============================
-// ODDS REALISTAS (ANTI-VIÉS)
-// =============================
-
-function fairOdds(prob) {
-  return 1 / prob;
-}
-
-// simula margem de mercado (overround)
 function marketOdds(prob) {
-  const margin = 1.05;
+  const margin = 1.08;
   return (1 / prob) * margin;
 }
 
-// =============================
-// EV REALISTA
-// =============================
-
-function calculateEV(prob, odds) {
-  return prob * odds - 1;
+function adjustedEV(prob, odds, market) {
+  const baseEV = prob * odds - 1;
+  return baseEV * MARKET_WEIGHTS[market];
 }
-
-// =============================
-// ENGINE PRINCIPAL
-// =============================
 
 function generateOpportunities(matches) {
   const teams = calculateTeamStrengths(matches);
@@ -150,8 +125,6 @@ function generateOpportunities(matches) {
   const opportunities = [];
 
   matches.forEach(match => {
-    if (!teams[match.home_team] || !teams[match.away_team]) return;
-
     const { lambdaHome, lambdaAway } = expectedGoals(
       match.home_team,
       match.away_team,
@@ -170,16 +143,16 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      if (m.prob < 0.05) return; // filtro básico
+      let prob = calibrateProbability(m.prob);
 
-      const odds = marketOdds(m.prob);
-      const ev = calculateEV(m.prob, odds);
+      const odds = marketOdds(prob);
+      const ev = adjustedEV(prob, odds, m.type);
 
       if (ev >= CONFIG.MIN_EV) {
         opportunities.push({
           match: `${match.home_team} vs ${match.away_team}`,
           market: m.type,
-          probability: Number(m.prob.toFixed(3)),
+          probability: Number(prob.toFixed(3)),
           odds: Number(odds.toFixed(2)),
           ev: Number(ev.toFixed(3))
         });

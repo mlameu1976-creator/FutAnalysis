@@ -8,7 +8,7 @@ const CONFIG = {
   HOME_ADVANTAGE: 1.15,
   MAX_GOALS: 6,
   MIN_EV: 0.04,
-  MIN_PROB: 0.15 // 🔥 remove lixo
+  MIN_PROB: 0.15
 };
 
 function calculateTeamStrengths(matches) {
@@ -103,6 +103,17 @@ function calculateEV(prob, odds) {
   return prob * odds - 1;
 }
 
+function formatMarketName(type) {
+  const map = {
+    HOME_WIN: "Casa vence",
+    AWAY_WIN: "Fora vence",
+    OVER_2_5: "Over 2.5",
+    OVER_1_5: "Over 1.5",
+    BTTS: "Ambas marcam"
+  };
+  return map[type] || type;
+}
+
 function generateOpportunities(matches) {
   const teams = calculateTeamStrengths(matches);
   const league = leagueAverages(matches);
@@ -128,18 +139,21 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      if (m.prob < CONFIG.MIN_PROB) return; // 🔥 filtro forte
+      if (m.prob < CONFIG.MIN_PROB) return;
 
       const odds = marketOdds(m.prob);
       const ev = calculateEV(m.prob, odds);
 
       if (ev >= CONFIG.MIN_EV) {
         opportunities.push({
+          homeTeam: match.home_team,
+          awayTeam: match.away_team,
           match: `${match.home_team} vs ${match.away_team}`,
-          market: m.type,
-          probability: Number(m.prob.toFixed(3)),
+          market: formatMarketName(m.type),
+          probability: Number(m.prob.toFixed(2)),
+          confidence: Number((m.prob * 100).toFixed(0)),
           odds: Number(odds.toFixed(2)),
-          ev: Number(ev.toFixed(3))
+          ev: Number((ev * 100).toFixed(2))
         });
       }
     });

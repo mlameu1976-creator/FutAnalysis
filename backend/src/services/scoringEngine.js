@@ -10,44 +10,30 @@ const CONFIG = {
 };
 
 // =============================
-// 🔥 LIGAS PERMITIDAS (PRO)
+// 🔥 LIGAS (VERSÃO FLEXÍVEL)
 // =============================
 const ALLOWED_LEAGUES = [
-  "premier",
-  "championship",
-  "la liga",
-  "segunda",
-  "serie a",
-  "serie b",
-  "bundesliga",
-  "eredivisie",
-  "portugal",
-  "turkey",
+  "england",
+  "spain",
+  "italy",
+  "germany",
+  "france",
   "brazil",
-  "norway",
-  "mls",
-  "denmark",
-  "austria",
-  "china",
-  "scotland",
   "argentina",
-  "colombia",
-  "uruguay",
-  "paraguay",
-  "venezuela",
-  "bolivia",
-  "mexico",
-  "saudi",
-  "australia",
+  "usa",
+  "portugal",
+  "netherlands",
+  "turkey",
   "belgium",
-  "poland",
-  "czech",
-  "serbia"
+  "austria",
+  "denmark",
+  "norway",
+  "mexico"
 ];
 
 // =============================
 function isLeagueAllowed(leagueName) {
-  if (!leagueName) return false;
+  if (!leagueName) return true; // 🔥 NÃO BLOQUEIA
 
   const name = leagueName.toLowerCase();
 
@@ -108,17 +94,21 @@ function expectedGoals(home, away, teams, league) {
     return { lambdaHome: 1.4, lambdaAway: 1.2 };
   }
 
-  const homeAttack = (homeStats.scored / homeStats.games) / league.avgHome;
-  const homeDefense = (homeStats.conceded / homeStats.games) / league.avgAway;
-
-  const awayAttack = (awayStats.scored / awayStats.games) / league.avgAway;
-  const awayDefense = (awayStats.conceded / awayStats.games) / league.avgHome;
-
   return {
     lambdaHome:
-      homeAttack * awayDefense * league.avgHome * CONFIG.HOME_ADVANTAGE,
+      ((homeStats.scored / homeStats.games) /
+        league.avgHome) *
+      ((awayStats.conceded / awayStats.games) /
+        league.avgAway) *
+      league.avgHome *
+      CONFIG.HOME_ADVANTAGE,
+
     lambdaAway:
-      awayAttack * homeDefense * league.avgAway
+      ((awayStats.scored / awayStats.games) /
+        league.avgAway) *
+      ((homeStats.conceded / homeStats.games) /
+        league.avgHome) *
+      league.avgAway
   };
 }
 
@@ -179,15 +169,21 @@ function formatMarket(type) {
 }
 
 // =============================
-// 🚀 ENGINE FINAL COM FILTRO DE LIGA
+// 🚀 ENGINE FINAL
 // =============================
 function generateOpportunities(matches) {
-  if (!matches || matches.length === 0) return [];
+  if (!matches || matches.length === 0) {
+    console.log("⚠️ Nenhum jogo recebido");
+    return [];
+  }
 
-  // 🔥 FILTRO AQUI
+  console.log("TOTAL MATCHES:", matches.length);
+
   const filteredMatches = matches.filter(m =>
     isLeagueAllowed(m.league)
   );
+
+  console.log("MATCHES APÓS FILTRO:", filteredMatches.length);
 
   const teams = calculateTeamStrengths(filteredMatches);
   const league = leagueAverages(filteredMatches);
@@ -223,7 +219,7 @@ function generateOpportunities(matches) {
       const item = {
         homeTeam: match.home_team,
         awayTeam: match.away_team,
-        league: match.league,
+        league: match.league || "unknown",
         market: formatMarket(m.type),
         probability: Number((m.prob * 100).toFixed(1)),
         confidence: Number((m.prob * 100).toFixed(0)),

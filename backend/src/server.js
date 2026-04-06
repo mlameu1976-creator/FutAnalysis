@@ -1,23 +1,41 @@
 const express = require("express");
 const cors = require("cors");
+const db = require("./db");
+
+const { importMatches } = require("./services/dataIngestion");
+const opportunitiesRoute = require("./routes/opportunities");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// IMPORTAÇÃO DAS ROTAS
-const opportunitiesRoutes = require("./routes/opportunities");
+// =============================
+// 🔥 RESET + INGESTÃO FORÇADA
+// =============================
+async function start() {
+  try {
+    console.log("🔥 LIMPANDO BANCO...");
 
-// ROTA BASE
-app.use("/opportunities", opportunitiesRoutes);
+    await db.query("DELETE FROM matches");
 
-// HEALTH CHECK (IMPORTANTE)
-app.get("/", (req, res) => {
-  res.send("🚀 FutAnalysis Backend Running");
-});
+    console.log("🚀 IMPORTANDO JOGOS...");
 
-const PORT = process.env.PORT || 3000;
+    await importMatches();
+
+    console.log("✅ INGESTÃO FINALIZADA");
+  } catch (err) {
+    console.error("❌ ERRO START:", err);
+  }
+}
+
+// 🔥 EXECUTA AO INICIAR
+start();
+
+// =============================
+app.use("/opportunities", opportunitiesRoute);
+
+// =============================
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`🔥 Server running on port ${PORT}`);

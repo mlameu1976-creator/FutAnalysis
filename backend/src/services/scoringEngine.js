@@ -10,88 +10,17 @@ const CONFIG = {
 };
 
 // =============================
-// 🔥 LIGAS REAIS (BASE API)
+// 🔥 DEBUG DE LIGAS
 // =============================
-const ALLOWED_LEAGUES = [
-  // Inglaterra
-  "premier league",
-  "championship",
-  "league one",
-  "league two",
+function logLeagues(matches) {
+  const leagues = new Set();
 
-  // Espanha
-  "la liga",
-  "segunda",
+  matches.forEach(m => {
+    if (m.league) leagues.add(m.league);
+  });
 
-  // Itália
-  "serie a",
-  "serie b",
-
-  // Alemanha
-  "bundesliga",
-  "2. bundesliga",
-  "3. liga",
-
-  // França
-  "ligue 1",
-  "ligue 2",
-
-  // Brasil
-  "serie a",
-  "serie b",
-  "brasileirão",
-
-  // Holanda
-  "eredivisie",
-  "eerste divisie",
-
-  // Portugal
-  "primeira liga",
-  "liga portugal 2",
-
-  // Turquia
-  "super lig",
-  "1. lig",
-
-  // MLS
-  "mls",
-
-  // Escócia
-  "premiership",
-  "championship",
-
-  // Argentina
-  "liga profesional",
-
-  // México
-  "liga mx",
-
-  // Bélgica
-  "jupiler",
-  "challenger pro league",
-
-  // Áustria
-  "bundesliga austria",
-
-  // Dinamarca
-  "superliga",
-
-  // Noruega
-  "eliteserien",
-
-  // Outros
-  "a-league",
-  "saudi",
-  "china super league"
-];
-
-// =============================
-function isLeagueAllowed(leagueName) {
-  if (!leagueName) return true;
-
-  const name = leagueName.toLowerCase();
-
-  return ALLOWED_LEAGUES.some(l => name.includes(l));
+  console.log("📊 LIGAS DETECTADAS:");
+  console.log([...leagues]);
 }
 
 // =============================
@@ -216,18 +145,22 @@ function formatMarket(type) {
 }
 
 // =============================
+// 🚀 ENGINE FINAL (SEM FILTRO)
+// =============================
 function generateOpportunities(matches) {
-  const filtered = matches.filter(m => isLeagueAllowed(m.league));
+  if (!matches || matches.length === 0) return [];
 
-  console.log("ANTES:", matches.length);
-  console.log("DEPOIS:", filtered.length);
+  console.log("TOTAL MATCHES:", matches.length);
 
-  const teams = calculateTeamStrengths(filtered);
-  const league = leagueAverages(filtered);
+  // 🔥 DEBUG AQUI
+  logLeagues(matches);
+
+  const teams = calculateTeamStrengths(matches);
+  const league = leagueAverages(matches);
 
   const map = new Map();
 
-  filtered.forEach(match => {
+  matches.forEach(match => {
     const { lambdaHome, lambdaAway } = expectedGoals(
       match.home_team,
       match.away_team,
@@ -256,7 +189,7 @@ function generateOpportunities(matches) {
       const item = {
         homeTeam: match.home_team,
         awayTeam: match.away_team,
-        league: match.league,
+        league: match.league || "unknown",
         market: formatMarket(m.type),
         probability: Number((m.prob * 100).toFixed(1)),
         confidence: Number((m.prob * 100).toFixed(0)),

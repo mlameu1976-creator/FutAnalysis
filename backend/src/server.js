@@ -9,6 +9,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+console.log("🔥 SERVER NOVO RODANDO");
+
 // ===============================
 // TESTE
 // ===============================
@@ -50,7 +52,7 @@ app.get("/opportunities", async (req, res) => {
 });
 
 // ===============================
-// START SERVER
+// START
 // ===============================
 async function start() {
   try {
@@ -58,7 +60,6 @@ async function start() {
 
     console.log("🔥 DB conectado");
 
-    // 🚀 INGESTÃO CORRETA
     await runIngestion();
 
     app.listen(8080, () => {

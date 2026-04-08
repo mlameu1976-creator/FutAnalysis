@@ -33,7 +33,7 @@ router.get("/matches", async (req, res) => {
 });
 
 // ===============================
-// OPPORTUNITIES
+// OPPORTUNITIES (DEBUG ATIVO)
 // ===============================
 router.get("/opportunities", async (req, res) => {
   try {
@@ -51,20 +51,25 @@ router.get("/opportunities", async (req, res) => {
     const opportunities = [];
 
     for (const match of result.rows) {
-      const markets = generateMarkets(match, leagueAvg);
+      try {
+        const markets = generateMarkets(match, leagueAvg);
 
-      if (markets.length > 0) {
         opportunities.push({
           match: `${match.home_team} vs ${match.away_team}`,
           date: match.match_date,
-          markets,
+          markets: markets || [],
         });
+
+      } catch (err) {
+        console.error("❌ ERRO MATCH:", match.home_team, "vs", match.away_team);
+        console.error(err);
       }
     }
 
     res.json(opportunities);
+
   } catch (err) {
-    console.error("Erro /opportunities:", err.message);
+    console.error("❌ ERRO GERAL /opportunities:", err);
     res.status(500).json({ error: "Erro ao gerar oportunidades" });
   }
 });

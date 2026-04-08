@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const db = require("./db");
-const { generateMarkets } = require("./services/scoringEngine");
+const { generateOpportunities } = require("./services/scoringEngine");
 
 // ===============================
 // HEALTH CHECK
@@ -33,7 +33,7 @@ router.get("/matches", async (req, res) => {
 });
 
 // ===============================
-// OPPORTUNITIES (DEBUG ATIVO)
+// OPPORTUNITIES (CORRIGIDO)
 // ===============================
 router.get("/opportunities", async (req, res) => {
   try {
@@ -43,33 +43,12 @@ router.get("/opportunities", async (req, res) => {
       LIMIT 50
     `);
 
-    const leagueAvg = {
-      home_goals: 1.4,
-      away_goals: 1.2,
-    };
-
-    const opportunities = [];
-
-    for (const match of result.rows) {
-      try {
-        const markets = generateMarkets(match, leagueAvg);
-
-        opportunities.push({
-          match: `${match.home_team} vs ${match.away_team}`,
-          date: match.match_date,
-          markets: markets || [],
-        });
-
-      } catch (err) {
-        console.error("❌ ERRO MATCH:", match.home_team, "vs", match.away_team);
-        console.error(err);
-      }
-    }
+    const opportunities = generateOpportunities(result.rows);
 
     res.json(opportunities);
 
   } catch (err) {
-    console.error("❌ ERRO GERAL /opportunities:", err);
+    console.error("❌ ERRO /opportunities:", err);
     res.status(500).json({ error: "Erro ao gerar oportunidades" });
   }
 });

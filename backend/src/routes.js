@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const db = require("./db");
+
+// 🔥 IMPORT CORRETO DO ENGINE PROFISSIONAL
 const { generateOpportunities } = require("./services/scoringEngine");
 
 // ===============================
@@ -33,7 +35,7 @@ router.get("/matches", async (req, res) => {
 });
 
 // ===============================
-// OPPORTUNITIES (CORRIGIDO)
+// OPPORTUNITIES (ENGINE PRO)
 // ===============================
 router.get("/opportunities", async (req, res) => {
   try {
@@ -43,6 +45,7 @@ router.get("/opportunities", async (req, res) => {
       LIMIT 50
     `);
 
+    // 🔥 AQUI É A DIFERENÇA CRÍTICA
     const opportunities = generateOpportunities(result.rows);
 
     res.json(opportunities);

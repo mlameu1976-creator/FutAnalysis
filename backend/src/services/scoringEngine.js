@@ -5,23 +5,10 @@ const poisson = (lambda, k) => {
 };
 
 const CONFIG = {
-  HOME_ADVANTAGE: 1.15,
-  MAX_GOALS: 6
+  HOME_ADVANTAGE: 1.12,
+  MAX_GOALS: 6,
+  MIN_EV: 0.05 // 🔥 filtro profissional (5%)
 };
-
-// =============================
-// 🔥 DEBUG DE LIGAS
-// =============================
-function logLeagues(matches) {
-  const leagues = new Set();
-
-  matches.forEach(m => {
-    if (m.league) leagues.add(m.league);
-  });
-
-  console.log("📊 LIGAS DETECTADAS:");
-  console.log([...leagues]);
-}
 
 // =============================
 function calculateTeamStrengths(matches) {
@@ -72,20 +59,23 @@ function expectedGoals(home, away, teams, league) {
   const awayStats = teams[away];
 
   if (!homeStats || !awayStats) {
-    return { lambdaHome: 1.4, lambdaAway: 1.2 };
+    return { lambdaHome: 1.3, lambdaAway: 1.1 };
   }
 
-  return {
-    lambdaHome:
-      ((homeStats.scored / homeStats.games) / league.avgHome) *
-      ((awayStats.conceded / awayStats.games) / league.avgAway) *
-      league.avgHome *
-      CONFIG.HOME_ADVANTAGE,
+  const lambdaHome =
+    ((homeStats.scored / homeStats.games) / league.avgHome) *
+    ((awayStats.conceded / awayStats.games) / league.avgAway) *
+    league.avgHome *
+    CONFIG.HOME_ADVANTAGE;
 
-    lambdaAway:
-      ((awayStats.scored / awayStats.games) / league.avgAway) *
-      ((homeStats.conceded / homeStats.games) / league.avgHome) *
-      league.avgAway
+  const lambdaAway =
+    ((awayStats.scored / awayStats.games) / league.avgAway) *
+    ((homeStats.conceded / homeStats.games) / league.avgHome) *
+    league.avgAway;
+
+  return {
+    lambdaHome: Math.max(0.2, lambdaHome),
+    lambdaAway: Math.max(0.2, lambdaAway)
   };
 }
 
@@ -115,20 +105,24 @@ function matchProbabilities(lambdaHome, lambdaAway) {
 
 // =============================
 function firstHalfGoal(lambdaHome, lambdaAway) {
-  return 1 - Math.exp(-(lambdaHome + lambdaAway) * 0.45);
+  return 1 - Math.exp(-(lambdaHome + lambdaAway) * 0.42);
 }
 
 // =============================
+// 🎯 ODDS REALISTAS (BOOKMAKER STYLE)
+// =============================
 function marketOdds(prob, type) {
-  let margin = 1.04;
+  let margin = 1.06;
 
-  if (type.includes("OVER")) margin = 1.01;
-  if (type === "BTTS") margin = 1.02;
-  if (type === "HT_GOAL") margin = 1.02;
+  if (type.includes("OVER")) margin = 1.05;
+  if (type === "BTTS") margin = 1.05;
+  if (type === "HT_GOAL") margin = 1.04;
+  if (type === "HOME_WIN" || type === "AWAY_WIN") margin = 1.07;
 
   return (1 / prob) * margin;
 }
 
+// =============================
 function calculateEV(prob, odds) {
   return prob * odds - 1;
 }
@@ -145,20 +139,15 @@ function formatMarket(type) {
 }
 
 // =============================
-// 🚀 ENGINE FINAL (SEM FILTRO)
+// 🚀 ENGINE PROFISSIONAL
 // =============================
 function generateOpportunities(matches) {
   if (!matches || matches.length === 0) return [];
 
-  console.log("TOTAL MATCHES:", matches.length);
-
-  // 🔥 DEBUG AQUI
-  logLeagues(matches);
-
   const teams = calculateTeamStrengths(matches);
   const league = leagueAverages(matches);
 
-  const map = new Map();
+  const opportunities = [];
 
   matches.forEach(match => {
     const { lambdaHome, lambdaAway } = expectedGoals(
@@ -181,29 +170,32 @@ function generateOpportunities(matches) {
     ];
 
     markets.forEach(m => {
-      const key = `${match.home_team}-${match.away_team}-${m.type}`;
+      if (!m.prob || m.prob <= 0) return;
 
       const odds = marketOdds(m.prob, m.type);
       const ev = calculateEV(m.prob, odds);
 
-      const item = {
-        homeTeam: match.home_team,
-        awayTeam: match.away_team,
+      // 🔥 FILTRO PROFISSIONAL
+      if (ev < CONFIG.MIN_EV) return;
+
+      const score = (ev * 0.7) + (m.prob * 0.3);
+
+      opportunities.push({
+        match: `${match.home_team} vs ${match.away_team}`,
         league: match.league || "unknown",
         market: formatMarket(m.type),
         probability: Number((m.prob * 100).toFixed(1)),
-        confidence: Number((m.prob * 100).toFixed(0)),
         odds: Number(odds.toFixed(2)),
-        ev: Number((ev * 100).toFixed(2))
-      };
-
-      if (!map.has(key) || item.ev > map.get(key).ev) {
-        map.set(key, item);
-      }
+        ev: Number((ev * 100).toFixed(2)),
+        score: Number(score.toFixed(3))
+      });
     });
   });
 
-  return Array.from(map.values());
+  // 🔥 RANKING PROFISSIONAL
+  return opportunities
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 20);
 }
 
 module.exports = { generateOpportunities };

@@ -1,201 +1,82 @@
-const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1));
-
-const poisson = (lambda, k) => {
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
-};
-
-const CONFIG = {
-  HOME_ADVANTAGE: 1.12,
-  MAX_GOALS: 6,
-  MIN_EV: 0.05 // 🔥 filtro profissional (5%)
-};
-
-// =============================
-function calculateTeamStrengths(matches) {
-  const teams = {};
-
-  matches.forEach(m => {
-    const homeGoals = m.home_goals ?? 1;
-    const awayGoals = m.away_goals ?? 1;
-
-    if (!teams[m.home_team]) {
-      teams[m.home_team] = { scored: 0, conceded: 0, games: 0 };
-    }
-    if (!teams[m.away_team]) {
-      teams[m.away_team] = { scored: 0, conceded: 0, games: 0 };
-    }
-
-    teams[m.home_team].scored += homeGoals;
-    teams[m.home_team].conceded += awayGoals;
-    teams[m.home_team].games += 1;
-
-    teams[m.away_team].scored += awayGoals;
-    teams[m.away_team].conceded += homeGoals;
-    teams[m.away_team].games += 1;
-  });
-
-  return teams;
-}
-
-// =============================
-function leagueAverages(matches) {
-  let totalGoals = 0;
-
-  matches.forEach(m => {
-    totalGoals += (m.home_goals ?? 1) + (m.away_goals ?? 1);
-  });
-
-  const games = matches.length || 1;
-
-  return {
-    avgHome: (totalGoals / games) * 0.5,
-    avgAway: (totalGoals / games) * 0.5
-  };
-}
-
-// =============================
-function expectedGoals(home, away, teams, league) {
-  const homeStats = teams[home];
-  const awayStats = teams[away];
-
-  if (!homeStats || !awayStats) {
-    return { lambdaHome: 1.3, lambdaAway: 1.1 };
-  }
-
-  const lambdaHome =
-    ((homeStats.scored / homeStats.games) / league.avgHome) *
-    ((awayStats.conceded / awayStats.games) / league.avgAway) *
-    league.avgHome *
-    CONFIG.HOME_ADVANTAGE;
-
-  const lambdaAway =
-    ((awayStats.scored / awayStats.games) / league.avgAway) *
-    ((homeStats.conceded / homeStats.games) / league.avgHome) *
-    league.avgAway;
-
-  return {
-    lambdaHome: Math.max(0.2, lambdaHome),
-    lambdaAway: Math.max(0.2, lambdaAway)
-  };
-}
-
-// =============================
-function matchProbabilities(lambdaHome, lambdaAway) {
-  let homeWin = 0;
-  let awayWin = 0;
-  let over25 = 0;
-  let over15 = 0;
-  let btts = 0;
-
-  for (let i = 0; i <= CONFIG.MAX_GOALS; i++) {
-    for (let j = 0; j <= CONFIG.MAX_GOALS; j++) {
-      const p = poisson(lambdaHome, i) * poisson(lambdaAway, j);
-
-      if (i > j) homeWin += p;
-      else if (j > i) awayWin += p;
-
-      if (i + j >= 3) over25 += p;
-      if (i + j >= 2) over15 += p;
-      if (i > 0 && j > 0) btts += p;
-    }
-  }
-
-  return { homeWin, awayWin, over25, over15, btts };
-}
-
-// =============================
-function firstHalfGoal(lambdaHome, lambdaAway) {
-  return 1 - Math.exp(-(lambdaHome + lambdaAway) * 0.42);
-}
-
-// =============================
-// 🎯 ODDS REALISTAS (BOOKMAKER STYLE)
-// =============================
-function marketOdds(prob, type) {
-  let margin = 1.06;
-
-  if (type.includes("OVER")) margin = 1.05;
-  if (type === "BTTS") margin = 1.05;
-  if (type === "HT_GOAL") margin = 1.04;
-  if (type === "HOME_WIN" || type === "AWAY_WIN") margin = 1.07;
-
-  return (1 / prob) * margin;
-}
-
-// =============================
 function calculateEV(prob, odds) {
-  return prob * odds - 1;
+  const p = prob / 100;
+  return ((p * odds) - 1) * 100;
 }
 
-function formatMarket(type) {
-  return {
-    HOME_WIN: "Casa vence",
-    AWAY_WIN: "Fora vence",
-    OVER_2_5: "Over 2.5",
-    OVER_1_5: "Over 1.5",
-    BTTS: "Ambas marcam",
-    HT_GOAL: "Gol no 1º tempo"
-  }[type];
-}
+function generateMarkets(match) {
+  const markets = [];
 
-// =============================
-// 🚀 ENGINE PROFISSIONAL
-// =============================
-function generateOpportunities(matches) {
-  if (!matches || matches.length === 0) return [];
+  const homeAttack = match.home_xg_for || 1.4;
+  const awayAttack = match.away_xg_for || 1.2;
 
-  const teams = calculateTeamStrengths(matches);
-  const league = leagueAverages(matches);
+  const totalGoals = homeAttack + awayAttack;
 
-  const opportunities = [];
+  // ===============================
+  // OVER 1.5
+  // ===============================
+  const probOver15 = Math.min(90, totalGoals * 25);
+  const oddsOver15 = 1.6;
 
-  matches.forEach(match => {
-    const { lambdaHome, lambdaAway } = expectedGoals(
-      match.home_team,
-      match.away_team,
-      teams,
-      league
-    );
-
-    const probs = matchProbabilities(lambdaHome, lambdaAway);
-    const htGoal = firstHalfGoal(lambdaHome, lambdaAway);
-
-    const markets = [
-      { type: "HOME_WIN", prob: probs.homeWin },
-      { type: "AWAY_WIN", prob: probs.awayWin },
-      { type: "OVER_2_5", prob: probs.over25 },
-      { type: "OVER_1_5", prob: probs.over15 },
-      { type: "BTTS", prob: probs.btts },
-      { type: "HT_GOAL", prob: htGoal }
-    ];
-
-    markets.forEach(m => {
-      if (!m.prob || m.prob <= 0) return;
-
-      const odds = marketOdds(m.prob, m.type);
-      const ev = calculateEV(m.prob, odds);
-
-      // 🔥 FILTRO PROFISSIONAL
-      if (ev < CONFIG.MIN_EV) return;
-
-      const score = (ev * 0.7) + (m.prob * 0.3);
-
-      opportunities.push({
-        match: `${match.home_team} vs ${match.away_team}`,
-        league: match.league || "unknown",
-        market: formatMarket(m.type),
-        probability: Number((m.prob * 100).toFixed(1)),
-        odds: Number(odds.toFixed(2)),
-        ev: Number((ev * 100).toFixed(2)),
-        score: Number(score.toFixed(3))
-      });
-    });
+  markets.push({
+    market: "Over 1.5",
+    probability: probOver15.toFixed(1),
+    odds: oddsOver15,
+    ev: calculateEV(probOver15, oddsOver15).toFixed(1),
   });
 
-  // 🔥 RANKING PROFISSIONAL
-  return opportunities
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 20);
+  // ===============================
+  // OVER 2.5
+  // ===============================
+  const probOver25 = Math.min(80, totalGoals * 18);
+  const oddsOver25 = 2.7;
+
+  markets.push({
+    market: "Over 2.5",
+    probability: probOver25.toFixed(1),
+    odds: oddsOver25,
+    ev: calculateEV(probOver25, oddsOver25).toFixed(1),
+  });
+
+  // ===============================
+  // CASA VENCE
+  // ===============================
+  const probHome = 50 + (homeAttack - awayAttack) * 10;
+  const oddsHome = 2.6;
+
+  markets.push({
+    market: "Casa vence",
+    probability: probHome.toFixed(1),
+    odds: oddsHome,
+    ev: calculateEV(probHome, oddsHome).toFixed(1),
+  });
+
+  // ===============================
+  // FORA VENCE
+  // ===============================
+  const probAway = 50 + (awayAttack - homeAttack) * 10;
+  const oddsAway = 3.3;
+
+  markets.push({
+    market: "Fora vence",
+    probability: probAway.toFixed(1),
+    odds: oddsAway,
+    ev: calculateEV(probAway, oddsAway).toFixed(1),
+  });
+
+  // ===============================
+  // GOL HT (1º TEMPO)
+  // ===============================
+  const probHT = Math.min(85, totalGoals * 22);
+  const oddsHT = 1.65;
+
+  markets.push({
+    market: "Gol no HT",
+    probability: probHT.toFixed(1),
+    odds: oddsHT,
+    ev: calculateEV(probHT, oddsHT).toFixed(1),
+  });
+
+  return markets;
 }
 
-module.exports = { generateOpportunities };
+module.exports = { generateMarkets };

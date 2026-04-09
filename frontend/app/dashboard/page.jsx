@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
@@ -9,16 +7,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(
-        "https://futanalysis-backend-production.up.railway.app/opportunities",
-        { cache: "no-store" }
-      );
+      try {
+        const res = await fetch(
+          "https://futanalysis-backend-production.up.railway.app/opportunities"
+        );
 
-      const json = await res.json();
+        const json = await res.json();
 
-      console.log("🔥 NOVO BUILD RODANDO", json);
+        console.log("DATA FINAL:", json);
 
-      setData(json);
+        setData(json);
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     load();
@@ -28,14 +29,26 @@ export default function Dashboard() {
     <div style={{ padding: 20 }}>
       <h1>Dashboard</h1>
 
-      {data.map((item, i) => (
-        <div key={i} style={{ border: "1px solid #444", margin: 10, padding: 10 }}>
+      {data.length === 0 && <p>Nenhuma oportunidade</p>}
+
+      {data.map((item, index) => (
+        <div
+          key={index}
+          style={{
+            border: "1px solid #444",
+            marginBottom: 20,
+            padding: 15,
+          }}
+        >
+          {/* 🔥 CORREÇÃO REAL */}
           <h2>{item.match}</h2>
 
-          <p>{item.market}</p>
-          <p>Prob: {item.probability}%</p>
-          <p>Odd: {item.odds}</p>
-          <p>EV: {item.ev}%</p>
+          <div style={{ marginTop: 10 }}>
+            <p><strong>{item.market}</strong></p>
+            <p>Prob: {item.probability}%</p>
+            <p>Odd: {item.odds}</p>
+            <p>EV: {item.ev}%</p>
+          </div>
         </div>
       ))}
     </div>

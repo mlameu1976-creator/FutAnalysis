@@ -1,9 +1,7 @@
-console.log("🔥 BUILD NOVO 100% LIMPO");
 const express = require("express");
 const cors = require("cors");
 const db = require("./db");
 
-const routes = require("./routes");
 const { runIngestion } = require("./services/dataIngestion");
 
 const app = express();
@@ -11,12 +9,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-console.log("🔥 SERVER NOVO RODANDO");
+console.log("🔥 SERVER RODANDO");
 
 // ===============================
-// ROTAS
+// TESTE
 // ===============================
-app.use("/", routes);
+app.get("/", (req, res) => {
+  res.send("FutAnalysis API rodando 🚀");
+});
 
 // ===============================
 // START
@@ -27,7 +27,10 @@ async function start() {
 
     console.log("🔥 DB conectado");
 
-    // 🚀 roda ingestão ao subir
+    // 🚨 FORÇA LIMPEZA TOTAL
+    await db.query("DELETE FROM matches");
+
+    // 🚨 FORÇA NOVA INGESTÃO
     await runIngestion();
 
     app.listen(8080, () => {

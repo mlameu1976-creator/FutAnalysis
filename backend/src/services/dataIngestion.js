@@ -1,106 +1,57 @@
-const axios = require("axios");
 const db = require("../db");
+const { LEAGUES } = require("../config/leagues");
 
-console.log("🔥 INGESTION REAL RODANDO");
+// ⚠️ SIMULAÇÃO DE FETCH (ajuste se já tiver API real)
+async function fetchMatchesByLeague(leagueId) {
+  // Aqui você conecta com sua API real
+  // Por enquanto retorna vazio para evitar crash
+  return [];
+}
 
-const API_KEY =
-  process.env.THESPORTSDB_API_KEY || process.env.SPORTSDB_API_KEY;
-
-const LEAGUES = [4328, 4331, 4332, 4334, 4335];
-
-const api = axios.create({
-  timeout: 10000,
-});
-
-// ===============================
-// FETCH
-// ===============================
-async function fetchMatches(leagueId) {
-  try {
-    const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsnextleague.php?id=${leagueId}`;
-
-    const res = await api.get(url);
-
-    if (!res.data || !res.data.events) {
-      console.log(`⚠️ Liga ${leagueId} sem eventos`);
-      return [];
+// SALVAR NO BANCO
+async function saveMatches(matches, leagueName) {
+  for (const match of matches) {
+    try {
+      await db.query(
+        `
+        INSERT INTO matches 
+        (home_team, away_team, match_date, league, home_xg_for, away_xg_for)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          match.homeTeam,
+          match.awayTeam,
+          match.date,
+          leagueName,
+          match.home_xg_for || 1.4,
+          match.away_xg_for || 1.2,
+        ]
+      );
+    } catch (err) {
+      console.error("Erro ao salvar jogo:", err.message);
     }
-
-    console.log(`✅ Liga ${leagueId}: ${res.data.events.length} jogos`);
-
-    return res.data.events;
-  } catch (err) {
-    console.log(`❌ ERRO API liga ${leagueId}:`, err.message);
-    return [];
   }
 }
 
-// ===============================
-// XG FAKE
-// ===============================
-function generateFakeXG() {
-  return {
-    home_xg_for: 1.2 + Math.random(),
-    home_xg_against: 1.0 + Math.random(),
-    away_xg_for: 1.0 + Math.random(),
-    away_xg_against: 1.2 + Math.random(),
-  };
-}
-
-// ===============================
-// INGESTÃO
-// ===============================
+// INGESTÃO PRINCIPAL
 async function runIngestion() {
   console.log("🚀 INICIANDO INGESTÃO...");
 
-  let total = 0;
+  for (const league of LEAGUES) {
+    try {
+      console.log(`📊 Liga: ${league.name}`);
 
-  for (const leagueId of LEAGUES) {
-    const matches = await fetchMatches(leagueId);
+      const matches = await fetchMatchesByLeague(league.id);
 
-    for (const m of matches) {
-      try {
-        if (!m.strHomeTeam || !m.strAwayTeam || !m.dateEvent) {
-          console.log("⚠️ Jogo inválido ignorado");
-          continue;
-        }
+      console.log(`✔ ${matches.length} jogos`);
 
-        const xg = generateFakeXG();
-
-        await db.query(
-          `
-          INSERT INTO matches (
-            home_team,
-            away_team,
-            match_date,
-            home_xg_for,
-            home_xg_against,
-            away_xg_for,
-            away_xg_against
-          )
-          VALUES ($1,$2,$3,$4,$5,$6,$7)
-        `,
-          [
-            m.strHomeTeam,
-            m.strAwayTeam,
-            m.dateEvent,
-            xg.home_xg_for,
-            xg.home_xg_against,
-            xg.away_xg_for,
-            xg.away_xg_against,
-          ]
-        );
-
-        total++;
-      } catch (err) {
-        console.log("❌ ERRO INSERT:", err.message);
-      }
+      await saveMatches(matches, league.name);
+    } catch (err) {
+      console.error(`❌ Erro liga ${league.name}`, err.message);
     }
   }
 
-  console.log(`✅ TOTAL IMPORTADO: ${total}`);
+  console.log("✅ INGESTÃO FINALIZADA");
 }
 
-module.exports = {
-  runIngestion,
-};
+module.exports = { runIngestion };

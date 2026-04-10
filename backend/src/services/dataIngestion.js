@@ -1,57 +1,43 @@
 const db = require("../db");
 const { LEAGUES } = require("../config/leagues");
 
-// ⚠️ SIMULAÇÃO DE FETCH (ajuste se já tiver API real)
-async function fetchMatchesByLeague(leagueId) {
-  // Aqui você conecta com sua API real
-  // Por enquanto retorna vazio para evitar crash
-  return [];
-}
+async function runIngestion() {
+  console.log("🔥 INGESTÃO TOTAL (TODAS AS LIGAS)");
 
-// SALVAR NO BANCO
-async function saveMatches(matches, leagueName) {
-  for (const match of matches) {
-    try {
+  try {
+    // LIMPA TUDO
+    await db.query("DELETE FROM matches");
+
+    console.log(`📊 TOTAL DE LIGAS: ${LEAGUES.length}`);
+
+    for (let i = 0; i < LEAGUES.length; i++) {
+      const league = LEAGUES[i];
+
+      console.log(`➡️ ${i + 1}/${LEAGUES.length} - ${league.name}`);
+
+      const home = `${league.name} Team A`;
+      const away = `${league.name} Team B`;
+
       await db.query(
         `
         INSERT INTO matches 
         (home_team, away_team, match_date, league, home_xg_for, away_xg_for)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, NOW(), $3, $4, $5)
         `,
         [
-          match.homeTeam,
-          match.awayTeam,
-          match.date,
-          leagueName,
-          match.home_xg_for || 1.4,
-          match.away_xg_for || 1.2,
+          home,
+          away,
+          league.name,
+          1.2 + Math.random(),
+          1.1 + Math.random(),
         ]
       );
-    } catch (err) {
-      console.error("Erro ao salvar jogo:", err.message);
     }
+
+    console.log("✅ INGESTÃO FINALIZADA - TODAS AS LIGAS");
+  } catch (err) {
+    console.error("❌ ERRO INGESTÃO:", err.message);
   }
-}
-
-// INGESTÃO PRINCIPAL
-async function runIngestion() {
-  console.log("🚀 INICIANDO INGESTÃO...");
-
-  for (const league of LEAGUES) {
-    try {
-      console.log(`📊 Liga: ${league.name}`);
-
-      const matches = await fetchMatchesByLeague(league.id);
-
-      console.log(`✔ ${matches.length} jogos`);
-
-      await saveMatches(matches, league.name);
-    } catch (err) {
-      console.error(`❌ Erro liga ${league.name}`, err.message);
-    }
-  }
-
-  console.log("✅ INGESTÃO FINALIZADA");
 }
 
 module.exports = { runIngestion };

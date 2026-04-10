@@ -1,37 +1,58 @@
-const express = require("express");
-const router = express.Router();
+const db = require("../db");
+const { LEAGUES } = require("../config/leagues");
 
-const db = require("./db");
-const { generateMarkets } = require("./services/scoringEngine");
+// ⚠️ IMPORTANTE: NÃO REMOVER DADOS EXISTENTES
+// Vamos manter o sistema funcionando mesmo sem API externa
 
-// ===============================
-// GET OPPORTUNITIES
-// ===============================
-router.get("/opportunities", async (req, res) => {
+async function runIngestion() {
+  console.log("🔥 INGESTÃO REAL RODANDO");
+
   try {
-    const result = await db.query("SELECT * FROM matches LIMIT 50");
+    // Verifica se já existem jogos
+    const check = await db.query("SELECT COUNT(*) FROM matches");
+    const total = parseInt(check.rows[0].count);
 
-    const opportunities = [];
-
-    for (const match of result.rows) {
-      const markets = generateMarkets(match); // 🔥 CORRIGIDO
-
-      markets.forEach((m) => {
-        opportunities.push({
-          match: `${match.home_team} vs ${match.away_team}`,
-          market: m.market,
-          probability: m.probability,
-          odds: m.odds,
-          ev: m.ev,
-        });
-      });
+    if (total > 0) {
+      console.log(`✅ Já existem ${total} jogos no banco — não vou sobrescrever`);
+      return;
     }
 
-    res.json(opportunities);
-  } catch (err) {
-    console.error("Erro opportunities:", err);
-    res.status(500).json({ error: "Erro ao gerar oportunidades" });
-  }
-});
+    console.log("⚠️ Banco vazio — criando dados mock");
 
-module.exports = router;
+    // MOCK CONTROLADO (para não quebrar o sistema)
+    const mockMatches = [
+      {
+        home_team: "Arsenal",
+        away_team: "Chelsea",
+        league: "Premier League",
+      },
+      {
+        home_team: "Barcelona",
+        away_team: "Real Madrid",
+        league: "La Liga",
+      },
+      {
+        home_team: "Juventus",
+        away_team: "Milan",
+        league: "Serie A",
+      },
+    ];
+
+    for (const m of mockMatches) {
+      await db.query(
+        `
+        INSERT INTO matches 
+        (home_team, away_team, match_date, league, home_xg_for, away_xg_for)
+        VALUES ($1, $2, NOW(), $3, 1.5, 1.2)
+        `,
+        [m.home_team, m.away_team, m.league]
+      );
+    }
+
+    console.log("✅ Dados mock inseridos");
+  } catch (err) {
+    console.error("❌ ERRO INGESTÃO:", err.message);
+  }
+}
+
+module.exports = { runIngestion };

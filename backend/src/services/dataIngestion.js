@@ -11,50 +11,58 @@ const LEAGUES = [
   { name: "Brasileirão", id: "4351" }
 ];
 
+async function fetchMatches(leagueId) {
+  try {
+    // 🔥 endpoint que SEMPRE retorna jogos
+    const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventspastleague.php?id=${leagueId}`;
+
+    const res = await axios.get(url);
+
+    return res.data.events || [];
+  } catch (err) {
+    console.error("❌ API erro:", err.message);
+    return [];
+  }
+}
+
 async function runIngestion() {
-  console.log("🔥🔥🔥 USANDO API REAL 🔥🔥🔥");
+  console.log("🔥 INGESTÃO REAL (PAST EVENTS)");
 
   await db.query("DELETE FROM matches");
 
+  let total = 0;
+
   for (const league of LEAGUES) {
-    console.log(`📡 Buscando ${league.name}`);
+    console.log(`📊 ${league.name}`);
 
-    const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsnextleague.php?id=${league.id}`;
+    const games = await fetchMatches(league.id);
 
-    try {
-      const res = await axios.get(url);
+    for (const game of games.slice(0, 10)) {
+      if (!game.strHomeTeam || !game.strAwayTeam) continue;
 
-      const games = res.data.events || [];
+      console.log(`⚽ ${game.strHomeTeam} vs ${game.strAwayTeam}`);
 
-      console.log(`➡️ ${games.length} jogos encontrados`);
+      await db.query(
+        `
+        INSERT INTO matches 
+        (home_team, away_team, match_date, league, home_xg_for, away_xg_for)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          game.strHomeTeam,
+          game.strAwayTeam,
+          game.dateEvent,
+          league.name,
+          1.2 + Math.random(),
+          1.1 + Math.random(),
+        ]
+      );
 
-      for (const game of games) {
-        if (!game.strHomeTeam || !game.strAwayTeam) continue;
-
-        console.log(`⚽ ${game.strHomeTeam} vs ${game.strAwayTeam}`);
-
-        await db.query(
-          `
-          INSERT INTO matches 
-          (home_team, away_team, match_date, league, home_xg_for, away_xg_for)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          `,
-          [
-            game.strHomeTeam,
-            game.strAwayTeam,
-            game.dateEvent,
-            league.name,
-            1.2 + Math.random(),
-            1.1 + Math.random(),
-          ]
-        );
-      }
-    } catch (err) {
-      console.error("❌ ERRO API:", err.message);
+      total++;
     }
   }
 
-  console.log("✅ INGESTÃO REAL FINALIZADA");
+  console.log(`✅ TOTAL IMPORTADO: ${total}`);
 }
 
 module.exports = { runIngestion };

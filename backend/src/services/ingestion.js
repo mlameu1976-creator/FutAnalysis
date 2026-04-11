@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-console.log("🔥🔥🔥 MULTI LIGAS OFICIAL ATIVA 🔥🔥🔥");
+console.log("🔥 INGESTION COM CONTROLE DE RATE LIMIT 🔥");
 
 const LEAGUES = [
   { name: "Premier League", id: 4328 },
@@ -19,38 +19,50 @@ const LEAGUES = [
   { name: "MLS", id: 4346 }
 ];
 
+// delay entre chamadas (ESSENCIAL)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function ingestAll() {
   try {
     let allMatches = [];
 
     for (let league of LEAGUES) {
-      console.log(`📥 ${league.name}`);
+      try {
+        console.log(`📥 ${league.name}`);
 
-      const res = await axios.get(
-        `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
-      );
+        const res = await axios.get(
+          `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
+        );
 
-      const data = res?.data;
+        const data = res?.data;
 
-      if (!data || !Array.isArray(data.events)) continue;
+        if (data && Array.isArray(data.events)) {
+          for (let ev of data.events) {
+            if (!ev) continue;
 
-      for (let ev of data.events) {
-        if (!ev) continue;
+            allMatches.push({
+              match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
+              league: league.name,
+              date: ev.dateEvent
+            });
+          }
+        }
 
-        allMatches.push({
-          match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
-          league: league.name,
-          date: ev.dateEvent
-        });
+        // ⏳ ESPERA ENTRE REQUISIÇÕES (CRUCIAL)
+        await delay(1200);
+
+      } catch (err) {
+        console.log(`❌ erro liga ${league.name}:`, err.message);
+        await delay(1500);
       }
     }
 
-    console.log(`✅ TOTAL: ${allMatches.length}`);
+    console.log(`✅ TOTAL FINAL: ${allMatches.length}`);
 
     return allMatches;
 
   } catch (err) {
-    console.log("❌ ERRO:", err.message);
+    console.log("❌ ERRO GERAL:", err.message);
     return [];
   }
 }

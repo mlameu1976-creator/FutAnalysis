@@ -3,7 +3,7 @@ const axios = require("axios");
 const API_KEY = process.env.SPORTSDB_API_KEY;
 const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
 
-// LISTA COMPLETA
+// LISTA DE LIGAS
 const LEAGUES = [
   "English Premier League",
   "English Championship",
@@ -12,37 +12,21 @@ const LEAGUES = [
   "Spanish La Liga",
   "Spanish Segunda Division",
   "French Ligue 1",
-  "French Ligue 2",
   "German Bundesliga",
-  "German Bundesliga 2",
-  "German 3. Liga",
   "Brazil Serie A",
-  "Brazil Serie B",
   "MLS",
-  "Saudi Pro League",
-  "Dutch Eredivisie",
-  "Dutch Eerste Divisie",
-  "Danish Superliga",
-  "Scottish Premiership",
-  "Norwegian Eliteserien",
-  "Austrian Bundesliga",
-  "Portuguese Primeira Liga",
-  "Turkish Super Lig",
-  "Polish Ekstraklasa",
   "Argentinian Primera Division",
-  "Colombian Primera A",
-  "Mexican Liga MX",
-  "Uruguayan Primera Division"
+  "Mexican Liga MX"
 ];
 
-// CACHE IDs (evita chamada repetida)
+// CACHE
 let leaguesCache = null;
 
 async function getAllLeagues() {
   if (leaguesCache) return leaguesCache;
 
   const res = await axios.get(`${BASE_URL}/all_leagues.php`);
-  leaguesCache = res.data.leagues;
+  leaguesCache = res.data.leagues || [];
 
   return leaguesCache;
 }
@@ -68,15 +52,13 @@ async function fetchLeagueEvents(leagueName) {
 
     const res = await axios.get(`${BASE_URL}/eventsnextleague.php?id=${id}`);
 
-    // 🔥 CORREÇÃO CRÍTICA
-    const events = res.data.events;
-
-    if (!Array.isArray(events)) {
+    // 🔥 GARANTIA ABSOLUTA
+    if (!res.data || !Array.isArray(res.data.events)) {
       console.log(`⚠️ Sem jogos: ${leagueName}`);
       return [];
     }
 
-    return events;
+    return res.data.events;
   } catch (err) {
     console.log("Erro liga:", leagueName);
     return [];
@@ -89,20 +71,23 @@ async function ingestAll() {
   for (const league of LEAGUES) {
     const events = await fetchLeagueEvents(league);
 
-    events.forEach((e) => {
-      if (!e.strHomeTeam || !e.strAwayTeam) return;
+    // 🔥 PROTEÇÃO FINAL (ANTI-CRASH)
+    if (!Array.isArray(events)) continue;
+
+    for (const e of events) {
+      if (!e.strHomeTeam || !e.strAwayTeam) continue;
 
       allMatches.push({
         match: `${e.strHomeTeam} vs ${e.strAwayTeam}`,
         league: league,
         date: e.dateEvent
       });
-    });
+    }
 
     console.log(`✔ ${league} (${events.length} jogos)`);
   }
 
-  console.log("🔥 TOTAL DE JOGOS:", allMatches.length);
+  console.log("🔥 TOTAL:", allMatches.length);
 
   return allMatches;
 }

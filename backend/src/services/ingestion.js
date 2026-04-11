@@ -1,10 +1,7 @@
-console.log("🔥🔥🔥 NOVA VERSAO MULTI LIGA ATIVA 🔥🔥🔥");
-
 const axios = require("axios");
 
-console.log("🔥 INGESTION MULTI-LIGAS 🔥");
+console.log("🔥🔥🔥 MULTI LIGAS OFICIAL ATIVA 🔥🔥🔥");
 
-// IDs reais TheSportsDB
 const LEAGUES = [
   { name: "Premier League", id: 4328 },
   { name: "Championship", id: 4329 },
@@ -19,10 +16,7 @@ const LEAGUES = [
   { name: "Ligue 2", id: 4401 },
   { name: "Brasileirão Série A", id: 4351 },
   { name: "Brasileirão Série B", id: 4352 },
-  { name: "MLS", id: 4346 },
-  { name: "Eredivisie", id: 4337 },
-  { name: "Primeira Liga", id: 4344 },
-  { name: "Super Lig", id: 4339 }
+  { name: "MLS", id: 4346 }
 ];
 
 async function ingestAll() {
@@ -30,7 +24,7 @@ async function ingestAll() {
     let allMatches = [];
 
     for (let league of LEAGUES) {
-      console.log(`📥 Buscando: ${league.name}`);
+      console.log(`📥 ${league.name}`);
 
       const res = await axios.get(
         `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
@@ -38,10 +32,7 @@ async function ingestAll() {
 
       const data = res?.data;
 
-      if (!data || !Array.isArray(data.events)) {
-        console.log(`⚠️ sem jogos: ${league.name}`);
-        continue;
-      }
+      if (!data || !Array.isArray(data.events)) continue;
 
       for (let ev of data.events) {
         if (!ev) continue;
@@ -54,7 +45,7 @@ async function ingestAll() {
       }
     }
 
-    console.log(`✅ TOTAL DE JOGOS: ${allMatches.length}`);
+    console.log(`✅ TOTAL: ${allMatches.length}`);
 
     return allMatches;
 

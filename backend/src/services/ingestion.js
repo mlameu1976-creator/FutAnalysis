@@ -1,3 +1,5 @@
+console.log("🔥 NOVA VERSAO INGESTION ATIVA 🔥");
+
 const axios = require("axios");
 
 const API_KEY = process.env.API_KEY;

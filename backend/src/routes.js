@@ -7,9 +7,10 @@ router.get("/opportunities", async (req, res) => {
   try {
     const matches = await ingestAll();
 
-    const opportunities = [];
+    const response = [];
 
     matches.forEach((m) => {
+
       const markets = [
         { name: "Over 1.5", prob: 0.75, odd: 1.6 },
         { name: "Over 2.5", prob: 0.60, odd: 2.7 },
@@ -18,14 +19,13 @@ router.get("/opportunities", async (req, res) => {
         { name: "Gol no HT", prob: 0.65, odd: 1.65 }
       ];
 
+      const filteredMarkets = [];
+
       markets.forEach((mk) => {
         const ev = mk.prob * mk.odd - 1;
 
         if (ev > 0) {
-          opportunities.push({
-            match: m.match,
-            league: m.league,
-            date: m.date,
+          filteredMarkets.push({
             market: mk.name,
             probability: (mk.prob * 100).toFixed(1),
             odds: mk.odd,
@@ -33,9 +33,19 @@ router.get("/opportunities", async (req, res) => {
           });
         }
       });
+
+      if (filteredMarkets.length > 0) {
+        response.push({
+          match: m.match,
+          league: m.league,
+          date: m.date,
+          markets: filteredMarkets
+        });
+      }
+
     });
 
-    res.json(opportunities);
+    res.json(response);
 
   } catch (err) {
     console.error(err);

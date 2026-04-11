@@ -3,93 +3,81 @@ const axios = require("axios");
 const API_KEY = process.env.SPORTSDB_API_KEY;
 const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
 
-// LISTA DE LIGAS
+// 🔥 LIGAS (PODE EXPANDIR DEPOIS)
 const LEAGUES = [
   "English Premier League",
-  "English Championship",
-  "Italian Serie A",
-  "Italian Serie B",
-  "Spanish La Liga",
-  "Spanish Segunda Division",
-  "French Ligue 1",
-  "German Bundesliga",
   "Brazil Serie A",
-  "MLS",
+  "Spanish La Liga",
+  "Italian Serie A",
+  "German Bundesliga",
   "Argentinian Primera Division",
-  "Mexican Liga MX"
+  "Mexican Liga MX",
+  "MLS"
 ];
 
-// CACHE
-let leaguesCache = null;
-
-async function getAllLeagues() {
-  if (leaguesCache) return leaguesCache;
-
-  const res = await axios.get(`${BASE_URL}/all_leagues.php`);
-  leaguesCache = res.data.leagues || [];
-
-  return leaguesCache;
-}
-
+// 🔥 BUSCA ID DAS LIGAS
 async function getLeagueId(name) {
-  const leagues = await getAllLeagues();
+  try {
+    const res = await axios.get(`${BASE_URL}/all_leagues.php`);
+    const leagues = res.data.leagues || [];
 
-  const league = leagues.find(
-    (l) => l.strLeague.toLowerCase() === name.toLowerCase()
-  );
+    const found = leagues.find(
+      (l) => l.strLeague.toLowerCase() === name.toLowerCase()
+    );
 
-  return league ? league.idLeague : null;
+    return found ? found.idLeague : null;
+  } catch {
+    return null;
+  }
 }
 
-async function fetchLeagueEvents(leagueName) {
+// 🔥 BUSCA JOGOS
+async function fetchEvents(league) {
   try {
-    const id = await getLeagueId(leagueName);
-
-    if (!id) {
-      console.log("❌ Liga não encontrada:", leagueName);
-      return [];
-    }
+    const id = await getLeagueId(league);
+    if (!id) return [];
 
     const res = await axios.get(`${BASE_URL}/eventsnextleague.php?id=${id}`);
 
-    // 🔥 GARANTIA ABSOLUTA
     if (!res.data || !Array.isArray(res.data.events)) {
-      console.log(`⚠️ Sem jogos: ${leagueName}`);
       return [];
     }
 
     return res.data.events;
-  } catch (err) {
-    console.log("Erro liga:", leagueName);
+  } catch {
     return [];
   }
 }
 
+// 🔥 INGESTÃO FINAL (SEM FOREACH!)
 async function ingestAll() {
-  let allMatches = [];
+  const matches = [];
 
-  for (const league of LEAGUES) {
-    const events = await fetchLeagueEvents(league);
+  for (let i = 0; i < LEAGUES.length; i++) {
+    const league = LEAGUES[i];
 
-    // 🔥 PROTEÇÃO FINAL (ANTI-CRASH)
+    const events = await fetchEvents(league);
+
     if (!Array.isArray(events)) continue;
 
-    for (const e of events) {
-      if (!e.strHomeTeam || !e.strAwayTeam) continue;
+    for (let j = 0; j < events.length; j++) {
+      const e = events[j];
 
-      allMatches.push({
-        match: `${e.strHomeTeam} vs ${e.strAwayTeam}`,
+      if (!e || !e.strHomeTeam || !e.strAwayTeam) continue;
+
+      matches.push({
+        match: e.strHomeTeam + " vs " + e.strAwayTeam,
         league: league,
         date: e.dateEvent
       });
     }
 
-    console.log(`✔ ${league} (${events.length} jogos)`);
+    console.log("✔", league, events.length);
   }
 
-  console.log("🔥 TOTAL:", allMatches.length);
+  console.log("🔥 TOTAL:", matches.length);
 
-  return allMatches;
+  return matches;
 }
 
 module.exports = { ingestAll };

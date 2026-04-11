@@ -1,3 +1,5 @@
+
+throw new Error("TESTE FORÇADO");
 const axios = require("axios");
 
 console.log("🔥 INGESTION 100% LIMPO 🔥");

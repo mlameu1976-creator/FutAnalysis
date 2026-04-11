@@ -3,7 +3,7 @@ const axios = require("axios");
 const API_KEY = process.env.SPORTSDB_API_KEY;
 const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
 
-// ✅ TODAS AS LIGAS (SUA LISTA COMPLETA)
+// LISTA COMPLETA
 const LEAGUES = [
   "English Premier League",
   "English Championship",
@@ -23,59 +23,66 @@ const LEAGUES = [
   "Dutch Eredivisie",
   "Dutch Eerste Divisie",
   "Danish Superliga",
-  "Danish 1st Division",
   "Scottish Premiership",
-  "Scottish Championship",
   "Norwegian Eliteserien",
-  "Norwegian First Division",
   "Austrian Bundesliga",
-  "Austrian 2. Liga",
   "Portuguese Primeira Liga",
-  "Portuguese Segunda Liga",
   "Turkish Super Lig",
-  "Turkish 1. Lig",
   "Polish Ekstraklasa",
-  "Serbian SuperLiga",
   "Argentinian Primera Division",
   "Colombian Primera A",
   "Mexican Liga MX",
-  "Bolivian Primera Division",
-  "Uruguayan Primera Division",
-  "Paraguayan Primera Division"
+  "Uruguayan Primera Division"
 ];
 
-// 🔥 BUSCAR EVENTOS POR LIGA
-async function fetchLeagueEvents(league) {
-  try {
-    const res = await axios.get(`${BASE_URL}/eventsnextleague.php`, {
-      params: { id: await getLeagueId(league) }
-    });
+// CACHE IDs (evita chamada repetida)
+let leaguesCache = null;
 
-    return res.data.events || [];
+async function getAllLeagues() {
+  if (leaguesCache) return leaguesCache;
+
+  const res = await axios.get(`${BASE_URL}/all_leagues.php`);
+  leaguesCache = res.data.leagues;
+
+  return leaguesCache;
+}
+
+async function getLeagueId(name) {
+  const leagues = await getAllLeagues();
+
+  const league = leagues.find(
+    (l) => l.strLeague.toLowerCase() === name.toLowerCase()
+  );
+
+  return league ? league.idLeague : null;
+}
+
+async function fetchLeagueEvents(leagueName) {
+  try {
+    const id = await getLeagueId(leagueName);
+
+    if (!id) {
+      console.log("❌ Liga não encontrada:", leagueName);
+      return [];
+    }
+
+    const res = await axios.get(`${BASE_URL}/eventsnextleague.php?id=${id}`);
+
+    // 🔥 CORREÇÃO CRÍTICA
+    const events = res.data.events;
+
+    if (!Array.isArray(events)) {
+      console.log(`⚠️ Sem jogos: ${leagueName}`);
+      return [];
+    }
+
+    return events;
   } catch (err) {
-    console.log("Erro liga:", league);
+    console.log("Erro liga:", leagueName);
     return [];
   }
 }
 
-// 🔥 PEGAR ID DA LIGA DINAMICAMENTE
-async function getLeagueId(name) {
-  try {
-    const res = await axios.get(`${BASE_URL}/search_all_leagues.php`, {
-      params: { s: "Soccer" }
-    });
-
-    const league = res.data.countrys.find(
-      (l) => l.strLeague.toLowerCase() === name.toLowerCase()
-    );
-
-    return league ? league.idLeague : null;
-  } catch {
-    return null;
-  }
-}
-
-// 🔥 INGESTÃO COMPLETA
 async function ingestAll() {
   let allMatches = [];
 
@@ -92,8 +99,10 @@ async function ingestAll() {
       });
     });
 
-    console.log(`✔ ${league} carregada`);
+    console.log(`✔ ${league} (${events.length} jogos)`);
   }
+
+  console.log("🔥 TOTAL DE JOGOS:", allMatches.length);
 
   return allMatches;
 }

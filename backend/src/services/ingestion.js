@@ -1,8 +1,7 @@
 
-throw new Error("TESTE FORÇADO");
 const axios = require("axios");
 
-console.log("🔥 INGESTION 100% LIMPO 🔥");
+console.log("🔥 INGESTION FINAL LIMPO 🔥");
 
 async function ingestAll() {
   try {
@@ -12,7 +11,7 @@ async function ingestAll() {
 
     const data = res?.data;
 
-    if (!data || !data.events || !Array.isArray(data.events)) {
+    if (!data || !Array.isArray(data.events)) {
       console.log("⚠️ sem eventos válidos");
       return [];
     }
@@ -24,17 +23,14 @@ async function ingestAll() {
 
       if (!ev) continue;
 
-      const home = ev.strHomeTeam || "Time A";
-      const away = ev.strAwayTeam || "Time B";
-
       matches.push({
-        match: `${home} vs ${away}`,
+        match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
         league: ev.strLeague || "Unknown",
         date: ev.dateEvent || null
       });
     }
 
-    console.log(`✅ ${matches.length} jogos carregados`);
+    console.log(`✅ ${matches.length} jogos`);
 
     return matches;
 

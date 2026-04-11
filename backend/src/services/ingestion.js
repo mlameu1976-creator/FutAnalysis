@@ -1,3 +1,5 @@
+console.log("🔥🔥🔥 NOVA VERSAO MULTI LIGA ATIVA 🔥🔥🔥");
+
 const axios = require("axios");
 
 console.log("🔥 INGESTION MULTI-LIGAS 🔥");

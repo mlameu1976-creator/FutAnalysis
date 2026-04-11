@@ -1,83 +1,82 @@
 const axios = require("axios");
 
-const API_KEY = process.env.SPORTSDB_API_KEY;
-const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
+const API_KEY = process.env.API_KEY;
 
-// 🔥 LIGAS (PODE EXPANDIR DEPOIS)
 const LEAGUES = [
   "English Premier League",
-  "Brazil Serie A",
-  "Spanish La Liga",
+  "English Championship",
   "Italian Serie A",
+  "Italian Serie B",
+  "Spanish La Liga",
+  "Spanish Segunda Division",
+  "French Ligue 1",
+  "French Ligue 2",
   "German Bundesliga",
-  "Argentinian Primera Division",
+  "German 2. Bundesliga",
+  "German 3. Liga",
+  "Brazilian Serie A",
+  "Brazilian Serie B",
+  "MLS",
+  "Saudi Pro League",
+  "Dutch Eredivisie",
+  "Dutch Eerste Divisie",
+  "Danish Superliga",
+  "Danish 1st Division",
+  "Scottish Premiership",
+  "Scottish Championship",
+  "Norwegian Eliteserien",
+  "Norwegian 1st Division",
+  "Austrian Bundesliga",
+  "Austrian 2. Liga",
+  "Portuguese Primeira Liga",
+  "Portuguese Segunda Liga",
+  "Turkish Super Lig",
+  "Turkish 1. Lig",
+  "Polish Ekstraklasa",
+  "Serbian SuperLiga",
+  "Argentine Primera Division",
+  "Colombian Primera A",
   "Mexican Liga MX",
-  "MLS"
+  "Bolivian Primera Division",
+  "Uruguayan Primera Division",
+  "Paraguayan Primera Division"
 ];
 
-// 🔥 BUSCA ID DAS LIGAS
-async function getLeagueId(name) {
-  try {
-    const res = await axios.get(`${BASE_URL}/all_leagues.php`);
-    const leagues = res.data.leagues || [];
-
-    const found = leagues.find(
-      (l) => l.strLeague.toLowerCase() === name.toLowerCase()
-    );
-
-    return found ? found.idLeague : null;
-  } catch {
-    return null;
-  }
-}
-
-// 🔥 BUSCA JOGOS
-async function fetchEvents(league) {
-  try {
-    const id = await getLeagueId(league);
-    if (!id) return [];
-
-    const res = await axios.get(`${BASE_URL}/eventsnextleague.php?id=${id}`);
-
-    if (!res.data || !Array.isArray(res.data.events)) {
-      return [];
-    }
-
-    return res.data.events;
-  } catch {
-    return [];
-  }
-}
-
-// 🔥 INGESTÃO FINAL (SEM FOREACH!)
 async function ingestAll() {
-  const matches = [];
+  const allMatches = [];
 
-  for (let i = 0; i < LEAGUES.length; i++) {
-    const league = LEAGUES[i];
+  for (const league of LEAGUES) {
+    try {
+      const res = await axios.get(
+        `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsnextleague.php?id=4328`
+      );
 
-    const events = await fetchEvents(league);
+      // 🔥 CORREÇÃO CRÍTICA
+      const events = res.data?.events;
 
-    if (!Array.isArray(events)) continue;
+      if (!Array.isArray(events)) {
+        console.log(`⚠️ ${league} sem jogos`);
+        continue;
+      }
 
-    for (let j = 0; j < events.length; j++) {
-      const e = events[j];
+      for (const ev of events) {
+        if (!ev.strHomeTeam || !ev.strAwayTeam) continue;
 
-      if (!e || !e.strHomeTeam || !e.strAwayTeam) continue;
+        allMatches.push({
+          match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
+          league: league,
+          date: ev.dateEvent
+        });
+      }
 
-      matches.push({
-        match: e.strHomeTeam + " vs " + e.strAwayTeam,
-        league: league,
-        date: e.dateEvent
-      });
+      console.log(`✅ ${league}: ${events.length} jogos`);
+
+    } catch (err) {
+      console.log(`❌ erro liga ${league}`);
     }
-
-    console.log("✔", league, events.length);
   }
 
-  console.log("🔥 TOTAL:", matches.length);
-
-  return matches;
+  return allMatches;
 }
 
 module.exports = { ingestAll };

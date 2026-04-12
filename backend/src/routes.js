@@ -10,7 +10,6 @@ router.get("/opportunities", async (req, res) => {
     const response = [];
 
     matches.forEach((m) => {
-
       const markets = [
         { name: "Over 1.5", prob: 0.75, odd: 1.6 },
         { name: "Over 2.5", prob: 0.60, odd: 2.7 },
@@ -42,7 +41,6 @@ router.get("/opportunities", async (req, res) => {
           markets: filteredMarkets
         });
       }
-
     });
 
     res.json(response);

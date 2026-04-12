@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-console.log("🔥 INGESTION COM CONTROLE DE RATE LIMIT 🔥");
+console.log("🔥 INGESTION FINAL COM DEDUPLICAÇÃO 🔥");
 
 const LEAGUES = [
   { name: "Premier League", id: 4328 },
@@ -19,12 +19,12 @@ const LEAGUES = [
   { name: "MLS", id: 4346 }
 ];
 
-// delay entre chamadas (ESSENCIAL)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function ingestAll() {
   try {
-    let allMatches = [];
+    const allMatches = [];
+    const seen = new Set(); // 🔥 controle de duplicidade
 
     for (let league of LEAGUES) {
       try {
@@ -40,19 +40,24 @@ async function ingestAll() {
           for (let ev of data.events) {
             if (!ev) continue;
 
-            allMatches.push({
-              match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
-              league: league.name,
-              date: ev.dateEvent
-            });
+            const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
+
+            if (!seen.has(key)) {
+              seen.add(key);
+
+              allMatches.push({
+                match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
+                league: league.name,
+                date: ev.dateEvent
+              });
+            }
           }
         }
 
-        // ⏳ ESPERA ENTRE REQUISIÇÕES (CRUCIAL)
-        await delay(1200);
+        await delay(1200); // evita 429
 
       } catch (err) {
-        console.log(`❌ erro liga ${league.name}:`, err.message);
+        console.log(`❌ erro ${league.name}:`, err.message);
         await delay(1500);
       }
     }

@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-console.log("🔥 INGESTION FINAL COM DEDUPLICAÇÃO 🔥");
+console.log("🔥 INGESTION REAL COMPLETA 🔥");
 
 const LEAGUES = [
   { name: "Premier League", id: 4328 },
@@ -19,26 +19,26 @@ const LEAGUES = [
   { name: "MLS", id: 4346 }
 ];
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function ingestAll() {
   try {
     const allMatches = [];
-    const seen = new Set(); // 🔥 controle de duplicidade
+    const seen = new Set();
 
     for (let league of LEAGUES) {
       try {
         console.log(`📥 ${league.name}`);
 
         const res = await axios.get(
-          `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
+          `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=${league.id}&s=2024-2025`
         );
 
         const data = res?.data;
 
         if (data && Array.isArray(data.events)) {
           for (let ev of data.events) {
-            if (!ev) continue;
+            if (!ev || !ev.strHomeTeam || !ev.strAwayTeam) continue;
 
             const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
 
@@ -54,7 +54,7 @@ async function ingestAll() {
           }
         }
 
-        await delay(1200); // evita 429
+        await delay(1200);
 
       } catch (err) {
         console.log(`❌ erro ${league.name}:`, err.message);

@@ -1,3 +1,5 @@
+console.log("🔥🔥🔥 NOVA VERSAO INGESTION 2.0 🔥🔥🔥");
+
 const axios = require("axios");
 
 console.log("🔥 INGESTION REAL COMPLETA 🔥");

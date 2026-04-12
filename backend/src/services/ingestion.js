@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-console.log("🔥🔥🔥 INGESTAO NOVA REAL 🔥🔥🔥");
-console.log("🚨 TESTE OFICIAL INGESTAO 🚨");
+console.log("🚨🚨🚨 NOVA INGESTAO OFICIAL 🚨🚨🚨");
 
 const LEAGUES = [
   { id: 4336, name: "Eredivisie" },
@@ -10,7 +9,6 @@ const LEAGUES = [
   { id: 4339, name: "Turkish Super Lig" },
   { id: 4358, name: "Argentina" },
   { id: 4354, name: "Liga MX" },
-
   { id: 4328, name: "Premier League" },
   { id: 4329, name: "Championship" },
   { id: 4332, name: "Serie A" },

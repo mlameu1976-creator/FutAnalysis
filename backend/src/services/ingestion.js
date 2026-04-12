@@ -1,3 +1,5 @@
+console.log("🔥🔥🔥 NOVA INGESTAO REAL RODANDO 🔥🔥🔥");
+
 const axios = require("axios");
 
 const API_KEY = process.env.SPORTDB_API_KEY;

@@ -1,8 +1,6 @@
-console.log("🚀 VERSAO FINAL CORRETA AGORA");
-
 const axios = require("axios");
 
-console.log("🔥 INGESTION REAL COMPLETA 🔥");
+console.log("🔥 INGESTION POR DATA (CORRETA) 🔥");
 
 const LEAGUES = [
   { name: "Premier League", id: 4328 },
@@ -23,45 +21,53 @@ const LEAGUES = [
 
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
+function getDate(offset = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().split("T")[0];
+}
+
 async function ingestAll() {
   try {
     const allMatches = [];
     const seen = new Set();
 
-    for (let league of LEAGUES) {
-      try {
-        console.log(`📥 ${league.name}`);
+    const dates = [getDate(0), getDate(1)]; // hoje + amanhã
 
-        const res = await axios.get(
-          `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=${league.id}&s=2024-2025`
+    for (let date of dates) {
+      console.log(`📅 Buscando data: ${date}`);
+
+      const res = await axios.get(
+        `https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${date}&s=Soccer`
+      );
+
+      const events = res.data?.events;
+
+      if (!Array.isArray(events)) continue;
+
+      for (let ev of events) {
+        if (!ev.strHomeTeam || !ev.strAwayTeam || !ev.strLeague) continue;
+
+        const leagueAllowed = LEAGUES.some(l =>
+          ev.strLeague.toLowerCase().includes(l.name.toLowerCase())
         );
 
-        const data = res?.data;
+        if (!leagueAllowed) continue;
 
-        if (data && Array.isArray(data.events)) {
-          for (let ev of data.events) {
-            if (!ev || !ev.strHomeTeam || !ev.strAwayTeam) continue;
+        const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
 
-            const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
+        if (!seen.has(key)) {
+          seen.add(key);
 
-            if (!seen.has(key)) {
-              seen.add(key);
-
-              allMatches.push({
-                match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
-                league: league.name,
-                date: ev.dateEvent
-              });
-            }
-          }
+          allMatches.push({
+            match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
+            league: ev.strLeague,
+            date: ev.dateEvent
+          });
         }
-
-        await delay(1200);
-
-      } catch (err) {
-        console.log(`❌ erro ${league.name}:`, err.message);
-        await delay(1500);
       }
+
+      await delay(1200);
     }
 
     console.log(`✅ TOTAL FINAL: ${allMatches.length}`);
@@ -69,7 +75,7 @@ async function ingestAll() {
     return allMatches;
 
   } catch (err) {
-    console.log("❌ ERRO GERAL:", err.message);
+    console.log("❌ ERRO:", err.message);
     return [];
   }
 }

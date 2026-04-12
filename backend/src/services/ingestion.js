@@ -3,26 +3,7 @@ const axios = require("axios");
 console.log("🚨🚨🚨 NOVA INGESTAO OFICIAL 🚨🚨🚨");
 
 const LEAGUES = [
-  { id: 4336, name: "Eredivisie" },
-  { id: 4356, name: "Eliteserien" },
-  { id: 4337, name: "Primeira Liga" },
-  { id: 4339, name: "Turkish Super Lig" },
-  { id: 4358, name: "Argentina" },
-  { id: 4354, name: "Liga MX" },
-  { id: 4328, name: "Premier League" },
-  { id: 4329, name: "Championship" },
-  { id: 4332, name: "Serie A" },
-  { id: 4394, name: "Serie B" },
-  { id: 4335, name: "La Liga" },
-  { id: 4400, name: "La Liga 2" },
-  { id: 4331, name: "Bundesliga" },
-  { id: 4396, name: "2. Bundesliga" },
-  { id: 4397, name: "3. Liga" },
-  { id: 4334, name: "Ligue 1" },
-  { id: 4401, name: "Ligue 2" },
-  { id: 4351, name: "Brasileirão Série A" },
-  { id: 4352, name: "Brasileirão Série B" },
-  { id: 4346, name: "MLS" }
+  { id: 9999, name: "TESTE LIGA NOVA" }
 ];
 
 const delay = (ms) => new Promise(r => setTimeout(r, ms));

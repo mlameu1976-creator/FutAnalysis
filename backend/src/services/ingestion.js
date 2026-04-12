@@ -1,3 +1,5 @@
+throw new Error("TESTE NOVA INGESTAO");
+
 const axios = require("axios");
 
 console.log("🔥 INGESTION FINAL FORÇADA POR LIGA 🔥");

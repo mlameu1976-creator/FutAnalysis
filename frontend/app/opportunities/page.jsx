@@ -12,8 +12,8 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     fetch(process.env.NEXT_PUBLIC_API_URL + "/opportunities")
-      .then((res) => res.json())
-      .then((json) => {
+      .then(res => res.json())
+      .then(json => {
         setData(json);
         setFiltered(json);
       });
@@ -22,93 +22,78 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     let result = [...data];
 
-    // 🔥 FILTRO LIGA
+    // 🔥 CORREÇÃO AQUI
     if (league !== "ALL") {
-      result = result.filter((r) => r.league === league);
+      result = result.filter(d =>
+        d.league.toLowerCase().includes(league.toLowerCase())
+      );
     }
 
-    // 🔥 FILTRO MERCADO
     if (market !== "ALL") {
-      result = result.filter((r) => r.market === market);
+      result = result.filter(d => d.market === market);
     }
 
-    // 🔥 FILTRO DATA
     if (dateFilter !== "ALL") {
-      const today = new Date();
-      const tomorrow = new Date();
-      tomorrow.setDate(today.getDate() + 1);
+      const today = new Date().toISOString().split("T")[0];
 
-      result = result.filter((r) => {
-        const matchDate = new Date(r.date);
+      if (dateFilter === "TODAY") {
+        result = result.filter(d => d.date === today);
+      }
 
-        if (dateFilter === "TODAY") {
-          return matchDate.toDateString() === today.toDateString();
-        }
+      if (dateFilter === "TOMORROW") {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
 
-        if (dateFilter === "TOMORROW") {
-          return matchDate.toDateString() === tomorrow.toDateString();
-        }
+        const t = tomorrow.toISOString().split("T")[0];
 
-        return true;
-      });
+        result = result.filter(d => d.date === t);
+      }
     }
 
     setFiltered(result);
-  }, [league, market, dateFilter, data]);
 
-  const leagues = [...new Set(data.map((d) => d.league))];
-  const markets = [...new Set(data.map((d) => d.market))];
+  }, [league, market, dateFilter, data]);
 
   return (
     <div style={{ padding: 20 }}>
       <h1>🔥 Oportunidades</h1>
 
-      {/* FILTROS */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-        <select onChange={(e) => setLeague(e.target.value)}>
-          <option value="ALL">Todas as ligas</option>
-          {leagues.map((l, i) => (
-            <option key={i} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
+      <select onChange={e => setLeague(e.target.value)}>
+        <option value="ALL">Todas ligas</option>
+        <option value="premier">Inglês</option>
+        <option value="serie">Italiano</option>
+        <option value="liga">Espanhol</option>
+        <option value="bundes">Alemão</option>
+        <option value="brazil">Brasil</option>
+        <option value="eredivisie">Holandês</option>
+        <option value="norway">Norueguês</option>
+      </select>
 
-        <select onChange={(e) => setMarket(e.target.value)}>
-          <option value="ALL">Todos mercados</option>
-          {markets.map((m, i) => (
-            <option key={i} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+      <select onChange={e => setMarket(e.target.value)}>
+        <option value="ALL">Todos mercados</option>
+        <option value="Over 1.5">Over 1.5</option>
+        <option value="Over 2.5">Over 2.5</option>
+        <option value="Casa vence">Casa vence</option>
+        <option value="Fora vence">Fora vence</option>
+        <option value="Gol no HT">Gol no HT</option>
+      </select>
 
-        <select onChange={(e) => setDateFilter(e.target.value)}>
-          <option value="ALL">Todas datas</option>
-          <option value="TODAY">Hoje</option>
-          <option value="TOMORROW">Amanhã</option>
-        </select>
-      </div>
+      <select onChange={e => setDateFilter(e.target.value)}>
+        <option value="ALL">Todas datas</option>
+        <option value="TODAY">Hoje</option>
+        <option value="TOMORROW">Amanhã</option>
+      </select>
 
-      {/* LISTA */}
-      <div style={{ display: "grid", gap: 20 }}>
-        {filtered.map((item, i) => (
-          <div
-            key={i}
-            style={{
-              border: "1px solid #333",
-              padding: 15,
-            }}
-          >
-            <h3>{item.match}</h3>
-            <p>Liga: {item.league}</p>
-            <p>Mercado: {item.market}</p>
-            <p>Prob: {item.probability}%</p>
-            <p>Odd: {item.odds}</p>
-            <p>EV: {item.ev}%</p>
-          </div>
-        ))}
-      </div>
+      {filtered.map((item, i) => (
+        <div key={i} style={{ border: "1px solid #444", margin: 10, padding: 10 }}>
+          <h3>{item.match}</h3>
+          <p>Liga: {item.league}</p>
+          <p>Mercado: {item.market}</p>
+          <p>Prob: {item.probability}%</p>
+          <p>Odd: {item.odds}</p>
+          <p>EV: {item.ev}%</p>
+        </div>
+      ))}
     </div>
   );
 }

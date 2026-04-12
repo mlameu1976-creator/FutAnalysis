@@ -1,3 +1,5 @@
+throw new Error("🔥 SERVER ALTERADO 🔥");
+
 const express = require("express");
 const cors = require("cors");
 const { ingestAll } = require("./services/ingestion");

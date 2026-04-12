@@ -1,4 +1,4 @@
-throw new Error("TESTE NOVA INGESTAO");
+console.log("🔥🔥🔥 NOVA INGESTAO REAL RODANDO 🔥🔥🔥");
 
 const axios = require("axios");
 

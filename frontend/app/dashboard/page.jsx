@@ -6,7 +6,9 @@ export default function Dashboard() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    fetch(process.env.NEXT_PUBLIC_API_URL + "/opportunities")
+    fetch(process.env.NEXT_PUBLIC_API_URL + "/opportunities", {
+  cache: "no-store"
+})
       .then((res) => res.json())
       .then((json) => setData(json))
       .catch((err) => console.error(err));

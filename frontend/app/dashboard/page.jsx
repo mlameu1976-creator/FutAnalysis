@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
@@ -5,18 +7,38 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch(process.env.NEXT_PUBLIC_API_URL + "/opportunities")
-      .then(res => res.json())
-      .then(json => setData(json));
+      .then((res) => res.json())
+      .then((json) => setData(json))
+      .catch((err) => console.error(err));
   }, []);
 
+  const grouped = {};
+
+  data.forEach((item) => {
+    if (!grouped[item.match]) {
+      grouped[item.match] = [];
+    }
+    grouped[item.match].push(item);
+  });
+
   return (
-    <div>
+    <div style={{ padding: 20 }}>
       <h1>Dashboard</h1>
 
-      {data.map((item, i) => (
-        <div key={i}>
-          <h2>{item.match}</h2>
-          <p>{item.league}</p>
+      {Object.keys(grouped).map((match) => (
+        <div key={match} style={{ marginBottom: 40 }}>
+          <h2>{match}</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {grouped[match].map((m, i) => (
+              <div key={i} style={{ border: "1px solid #333", padding: 10 }}>
+                <p><strong>{m.market}</strong></p>
+                <p>Prob: {m.probability}%</p>
+                <p>Odd: {m.odds}</p>
+                <p>EV: {m.ev}%</p>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>

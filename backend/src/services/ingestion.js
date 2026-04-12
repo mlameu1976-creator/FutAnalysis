@@ -1,11 +1,15 @@
-console.log("🔥🔥🔥 NOVA INGESTAO REAL RODANDO 🔥🔥🔥");
-
 const axios = require("axios");
 
-console.log("🔥 INGESTION FINAL FORÇADA POR LIGA 🔥");
+console.log("🔥🔥🔥 INGESTAO NOVA REAL 🔥🔥🔥");
 
-// TODAS as ligas que você pediu
 const LEAGUES = [
+  { id: 4336, name: "Eredivisie" },
+  { id: 4356, name: "Eliteserien" },
+  { id: 4337, name: "Primeira Liga" },
+  { id: 4339, name: "Turkish Super Lig" },
+  { id: 4358, name: "Argentina" },
+  { id: 4354, name: "Liga MX" },
+
   { id: 4328, name: "Premier League" },
   { id: 4329, name: "Championship" },
   { id: 4332, name: "Serie A" },
@@ -19,65 +23,49 @@ const LEAGUES = [
   { id: 4401, name: "Ligue 2" },
   { id: 4351, name: "Brasileirão Série A" },
   { id: 4352, name: "Brasileirão Série B" },
-  { id: 4346, name: "MLS" },
-
-  // 🔥 AS QUE NÃO ESTÃO VINDO
-  { id: 4336, name: "Eredivisie" },       // Holanda
-  { id: 4356, name: "Eliteserien" },      // Noruega
-  { id: 4337, name: "Primeira Liga" },    // Portugal
-  { id: 4339, name: "Turkish Super Lig" },
-  { id: 4358, name: "Argentina" },
-  { id: 4359, name: "Colombia" },
-  { id: 4354, name: "Liga MX" }
+  { id: 4346, name: "MLS" }
 ];
 
-const delay = (ms) => new Promise(res => setTimeout(res, ms));
+const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function ingestAll() {
-  try {
-    const allMatches = [];
-    const seen = new Set();
+  const allMatches = [];
+  const seen = new Set();
 
-    for (let league of LEAGUES) {
-      console.log(`📥 ${league.name}`);
+  for (let league of LEAGUES) {
+    console.log("📥", league.name);
 
-      try {
-        const res = await axios.get(
-          `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
-        );
+    try {
+      const res = await axios.get(
+        `https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=${league.id}`
+      );
 
-        const events = res.data?.events || [];
+      const events = res.data?.events || [];
 
-        for (let ev of events) {
-          if (!ev.strHomeTeam || !ev.strAwayTeam) continue;
+      for (let ev of events) {
+        if (!ev.strHomeTeam || !ev.strAwayTeam) continue;
 
-          const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
+        const key = `${ev.strHomeTeam}_${ev.strAwayTeam}_${ev.dateEvent}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
 
-          if (seen.has(key)) continue;
-          seen.add(key);
-
-          allMatches.push({
-            match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
-            league: league.name,
-            date: ev.dateEvent
-          });
-        }
-
-        await delay(1200);
-
-      } catch (err) {
-        console.log(`❌ erro ${league.name}`);
+        allMatches.push({
+          match: `${ev.strHomeTeam} vs ${ev.strAwayTeam}`,
+          league: league.name,
+          date: ev.dateEvent
+        });
       }
+
+      await delay(1200);
+
+    } catch (err) {
+      console.log("❌ erro:", league.name);
     }
-
-    console.log(`✅ TOTAL FINAL: ${allMatches.length}`);
-
-    return allMatches;
-
-  } catch (err) {
-    console.log("❌ ERRO:", err.message);
-    return [];
   }
+
+  console.log("✅ TOTAL FINAL:", allMatches.length);
+
+  return allMatches;
 }
 
 module.exports = { ingestAll };

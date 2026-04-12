@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 console.log("🔥🔥🔥 INGESTAO NOVA REAL 🔥🔥🔥");
+console.log("🚨 TESTE OFICIAL INGESTAO 🚨");
 
 const LEAGUES = [
   { id: 4336, name: "Eredivisie" },
